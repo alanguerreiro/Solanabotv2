@@ -1,4 +1,4 @@
-// Conecta à Phantom Wallet
+// Conectar à Phantom Wallet
 async function connectWallet() {
   try {
     const provider = window.solana;
@@ -11,8 +11,8 @@ async function connectWallet() {
     console.log("Conectado:", resp.publicKey.toString());
     alert("Carteira conectada: " + resp.publicKey.toString());
 
-    // Após conectar, inicia o scanner
-    iniciarBot();
+    // Inicia o bot após conectar
+    iniciarBot(resp.publicKey.toString());
 
   } catch (err) {
     console.error("Erro ao conectar:", err);
@@ -21,27 +21,26 @@ async function connectWallet() {
 }
 
 // Função principal do bot
-async function iniciarBot() {
-  const tokens = await buscarTokensPumpFun(); // do scanner.js
+async function iniciarBot(walletAddress) {
+  const tokens = await buscarTokensPumpFun(); // scanner.js
   console.log("Tokens encontrados:", tokens);
 
   for (const token of tokens) {
-    const decisao = decidirSwap(token); // do decision.js
-
+    const decisao = decidirCompraVenda(token); // decision.js
     console.log(`Token: ${token.name} | Decisão: ${decisao}`);
 
     if (decisao === "BUY") {
-      console.log(`Executando compra de $5 em ${token.name} 🚀`);
-      // Aqui entraremos com a função de swap real
+      console.log(`Comprando $5 de ${token.name}`);
+      executarSwap(token.address, walletAddress); // swap.js
     }
 
     if (decisao === "SELL") {
-      console.log(`Vendendo ${token.name} com +100% de lucro 🎯`);
-      // Em breve: integração com função de venda
+      console.log(`Vendendo ${token.name} com +100% de lucro`);
+      // Aqui futuramente: executarSwap para venda
     }
 
-    if (decisao === "STOP") {
-      console.log(`Stop Loss ativado para ${token.name} ❌`);
+    if (decisao === "HOLD") {
+      console.log(`Segurando ${token.name}`);
     }
   }
 }
