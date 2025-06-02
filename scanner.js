@@ -1,22 +1,17 @@
-async function buscarTokensPumpFun() {
+export async function buscarTokensPumpFun() {
   try {
-    const response = await fetch('https://solana-bot-backend.vercel.app/api/tokens');
-    const tokens = await response.json();
+    const res = await fetch("https://lite-api.jup.ag/tokens/v1/mints/tradable");
+    const mints = await res.json();
 
-    const tokensValidos = tokens
-      .filter(token => token && token.name && token.mint && token.liquidity > 0)
-      .map(token => ({
-        name: token.name,
-        address: token.mint,
-        liquidity: token.liquidity,
-        marketCap: token.marketCap || 0,
-        createdAt: token.createdAt || Date.now()
-      }));
+    // Limita a 10 tokens para testes
+    const tokens = mints.slice(0, 10).map((mint) => ({
+      name: mint,
+      address: mint
+    }));
 
-    console.log(`✅ Tokens encontrados: ${tokensValidos.length}`);
-    return tokensValidos.slice(0, 20);
+    return tokens;
   } catch (err) {
-    console.error("❌ Erro ao buscar tokens:", err);
+    console.error("Erro ao buscar tokens:", err);
     return [];
   }
 }
