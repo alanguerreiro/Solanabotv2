@@ -1,3 +1,19 @@
+let botAtivo = false;
+let botIntervalo = null;
+let walletAddress = null;
+
+function log(texto) {
+  const el = document.getElementById("console");
+  const linha = document.createElement("div");
+  linha.textContent = texto;
+  el.appendChild(linha);
+  el.scrollTop = el.scrollHeight;
+}
+
+function atualizarStatus(status) {
+  document.getElementById("botStatus").textContent = status;
+}
+
 async function connectWallet() {
   try {
     const provider = window.solana;
@@ -7,52 +23,65 @@ async function connectWallet() {
     }
 
     const resp = await provider.connect();
-    log("Carteira conectada: " + resp.publicKey.toString());
-
-    // Inicia o bot com loop automático
-    iniciarBot(resp.publicKey.toString());
+    walletAddress = resp.publicKey.toString();
+    log("✅ Carteira conectada: " + walletAddress);
+    atualizarStatus("Conectado");
+    iniciarBot();
   } catch (err) {
     console.error("Erro ao conectar:", err);
     alert("Erro ao conectar com a carteira.");
   }
 }
 
-// Função para exibir logs visuais
-function log(msg) {
-  const el = document.getElementById("console");
-  const line = document.createElement("div");
-  line.textContent = "> " + msg;
-  el.appendChild(line);
-  el.scrollTop = el.scrollHeight;
+function iniciarBot() {
+  if (botIntervalo) clearInterval(botIntervalo);
+  botAtivo = true;
+  atualizarStatus("Ativo");
+  log("🚀 Bot iniciado...");
+
+  botIntervalo = setInterval(() => {
+    executarBot(walletAddress);
+  }, 60000); // a cada 60 segundos
 }
 
-// Função principal com loop a cada 60s
-async function iniciarBot(walletAddress) {
-  setInterval(async () => {
-    try {
-      const tokens = await buscarTokensPumpFun(); // scanner.js
-      log(`Tokens encontrados: ${tokens.length}`);
+function pausarBot() {
+  botAtivo = false;
+  clearInterval(botIntervalo);
+  atualizarStatus("Pausado");
+  log("⏸️ Bot pausado.");
+}
 
-      for (const token of tokens) {
-        const decision = decidirCompraVenda(token); // decision.js
-        log(`Token: ${token.name} | Decisão: ${decision}`);
+function retomarBot() {
+  if (!walletAddress) {
+    alert("Conecte a carteira primeiro.");
+    return;
+  }
+  iniciarBot();
+}
 
-        if (decision === "BUY") {
-          log(`🟢 Comprando $5 de ${token.name}`);
-          await executarSwap(token.address, walletAddress); // swap.js
-        }
+// Função principal do bot com lógica de scanner, decisão e swap
+async function executarBot(wallet) {
+  try {
+    const tokens = await buscarTokensPumpFun(); // scanner.js
+    log("🔍 Tokens encontrados: " + tokens.length);
 
-        if (decision === "SELL") {
-          log(`🔴 Vendendo ${token.name} com +100% de lucro`);
-          // lógica futura de venda
-        }
+    for (const token of tokens) {
+      const decisao = decidirCompraVenda(token); // decision.js
+      log("🤖 Token: " + token.name + " | Decisão: " + decisao);
 
-        if (decision === "HOLD") {
-          log(`🟡 Aguardando possível 5x de ${token.name}`);
-        }
+      if (decisao === "BUY") {
+        log("💸 Comprando $5 de " + token.name);
+        await executarSwap(token.address, wallet); // swap.js
+      } else if (decisao === "SELL") {
+        log("💰 Vendendo " + token.name + " com +100% de lucro");
+      } else if (decisao === "HOLD") {
+        log("⏳ Aguardando possível 5x: " + token.name);
       }
-    } catch (err) {
-      log("Erro durante execução do bot: " + err.message);
+    }
+  } catch (err) {
+    log("❌ Erro durante execução: " + err.message);
+  }
+}
     }
   }, 60000); // 60 segundos
 }
