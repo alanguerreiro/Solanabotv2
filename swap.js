@@ -1,61 +1,42 @@
-import { Jupiter, RouteMap, TOKEN_LIST_URL } from '@jup-ag/core';
-import { Connection, PublicKey, VersionedTransaction } from '@solana/web3.js';
+// swap.js – execução real via Phantom com Jupiter Swap SDK
+async function executarSwap(tokenAddress) {
+  try {
+    const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=${tokenAddress}&amount=5000000&slippage=5`;
+    const quoteRes = await fetch(quoteUrl);
+    const quote = await quoteRes.json();
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
-let jupiter = null;
-let routeMap = null;
-let tokenList = [];
+    const swapUrl = "https://quote-api.jup.ag/v6/swap";
+    const wallet = window.solana;
 
-const SLIPPAGE = 5; // 5%
-const BUY_AMOUNT_USDC = 5 * 10 ** 6; // $5 em USDC (6 casas decimais)
-
-async function initJupiter() {
-    const tokensRes = await fetch(TOKEN_LIST_URL['mainnet-beta']);
-    tokenList = await tokensRes.json();
-    jupiter = await Jupiter.load({ connection, cluster: 'mainnet-beta' });
-    routeMap = await jupiter.getRouteMap();
-    console.log('Jupiter initialized');
-}
-
-function findTokenMintBySymbol(symbol) {
-    const token = tokenList.find((t) => t.symbol === symbol);
-    return token?.address || null;
-}
-
-async function executeSwap(inputSymbol, outputSymbol) {
-    if (!window.solana || !window.solana.isPhantom) {
-        alert('Phantom Wallet não detectada!');
-        return;
+    if (!wallet || !wallet.isConnected) {
+      alert("Carteira não conectada");
+      return;
     }
 
-    await window.solana.connect();
-    const userPublicKey = window.solana.publicKey;
+    const swapReq = {
+      route: quote.data[0], // melhor rota
+      userPublicKey: wallet.publicKey.toString(),
+      wrapUnwrapSOL: true,
+      feeAccount: null,
+    };
 
-    const inputMint = new PublicKey(findTokenMintBySymbol(inputSymbol));
-    const outputMint = new PublicKey(findTokenMintBySymbol(outputSymbol));
-
-    const routes = await jupiter.computeRoutes({
-        inputMint,
-        outputMint,
-        amount: BUY_AMOUNT_USDC,
-        slippageBps: SLIPPAGE * 100,
-        userPublicKey,
+    const swapTxRes = await fetch(swapUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(swapReq),
     });
 
-    if (!routes.routesInfos.length) {
-        console.log('Nenhuma rota encontrada.');
-        return;
-    }
+    const swapTx = await swapTxRes.json();
+    const tx = swapTx.swapTransaction;
 
-    const { execute } = await jupiter.exchange({
-        routeInfo: routes.routesInfos[0],
-        userPublicKey,
-    });
+    const decodedTx = new Uint8Array(
+      atob(tx).split("").map((c) => c.charCodeAt(0))
+    );
 
-    const { txid } = await execute();
-    console.log('Swap enviado. Tx ID:', txid);
-    alert('Swap executado com sucesso!');
+    const signedTx = await wallet.signAndSendTransaction(decodedTx);
+    console.log("✅ Swap executado com sucesso:", signedTx);
+  } catch (err) {
+    console.error("❌ Erro no swap:", err);
+    alert("Erro na execução real do swap.");
+  }
 }
-
-window.executeSwap = executeSwap;
-window.initJupiter = initJupiter;
