@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🚀 SolanaBot V2</title>
   <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@latest/lib/index.iife.js"></script>
   <style>
@@ -12,33 +12,37 @@
       padding: 20px;
     }
     button {
-      margin: 5px;
       padding: 10px;
+      margin: 5px;
       font-weight: bold;
     }
     #console {
       background-color: #000;
       color: #0f0;
-      padding: 10px;
       font-family: monospace;
-      height: 200px;
-      overflow-y: scroll;
-      border-radius: 5px;
+      padding: 10px;
       margin-top: 20px;
+      height: 300px;
+      overflow-y: auto;
+      border-radius: 5px;
     }
     #status {
-      margin-top: 10px;
+      margin-top: 15px;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h1>🚀 SolanaBot V2</h1>
+  <h2>🚀 SolanaBot V2</h2>
   <p>Conecte sua Phantom Wallet, configure os parâmetros e deixe o bot trabalhar por você.</p>
-  <button onclick="connectWallet()">🔗 Conectar Phantom</button>
+
+  <button onclick="connectWallet()">🟢 Conectar Phantom</button>
   <button onclick="pausarBot()">⏸️ Pausar</button>
   <button onclick="retomarBot()">▶️ Retomar</button>
-  <div id="status">Status: <span id="botStatus">Inativo</span></div>
+
+  <div id="status">🧠 Bot status: <span id="botStatus">Parado</span></div>
   <div id="console"></div>
+
   <script src="script.js"></script>
 </body>
 </html>
