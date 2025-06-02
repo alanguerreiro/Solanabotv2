@@ -1,4 +1,3 @@
-// Conectar à Phantom Wallet
 async function connectWallet() {
   try {
     const provider = window.solana;
@@ -8,41 +7,52 @@ async function connectWallet() {
     }
 
     const resp = await provider.connect();
-    console.log("✅ Carteira conectada:", resp.publicKey.toString());
-    alert("Carteira conectada: " + resp.publicKey.toString());
+    log("Carteira conectada: " + resp.publicKey.toString());
 
-    // Inicia o bot com o loop automático
+    // Inicia o bot com loop automático
     iniciarBot(resp.publicKey.toString());
   } catch (err) {
-    console.error("❌ Erro ao conectar:", err);
+    console.error("Erro ao conectar:", err);
     alert("Erro ao conectar com a carteira.");
   }
 }
 
-// Função principal do bot com loop a cada 60s
+// Função para exibir logs visuais
+function log(msg) {
+  const el = document.getElementById("console");
+  const line = document.createElement("div");
+  line.textContent = "> " + msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+// Função principal com loop a cada 60s
 async function iniciarBot(walletAddress) {
-  console.log("🚀 Bot iniciado...");
   setInterval(async () => {
-    const tokens = await buscarTokensPumpFun(); // scanner.js
-    console.log(`🔍 Tokens encontrados: ${tokens.length}`);
+    try {
+      const tokens = await buscarTokensPumpFun(); // scanner.js
+      log(`Tokens encontrados: ${tokens.length}`);
 
-    for (const token of tokens) {
-      const decisao = decidirCompraVenda(token); // decision.js
-      console.log(`📈 Token: ${token.name} | Decisão: ${decisao}`);
+      for (const token of tokens) {
+        const decision = decidirCompraVenda(token); // decision.js
+        log(`Token: ${token.name} | Decisão: ${decision}`);
 
-      if (decisao === "BUY") {
-        console.log(`🟢 Comprando $5 de ${token.name}`);
-        executarSwap(token.address, walletAddress); // swap.js
+        if (decision === "BUY") {
+          log(`🟢 Comprando $5 de ${token.name}`);
+          await executarSwap(token.address, walletAddress); // swap.js
+        }
+
+        if (decision === "SELL") {
+          log(`🔴 Vendendo ${token.name} com +100% de lucro`);
+          // lógica futura de venda
+        }
+
+        if (decision === "HOLD") {
+          log(`🟡 Aguardando possível 5x de ${token.name}`);
+        }
       }
-
-      if (decisao === "SELL") {
-        console.log(`🔴 Vendendo ${token.name} com +100% de lucro`);
-        // lógica futura de venda
-      }
-
-      if (decisao === "HOLD") {
-        console.log(`⏳ Aguardando possível 5x de ${token.name}`);
-      }
+    } catch (err) {
+      log("Erro durante execução do bot: " + err.message);
     }
-  }, 60000); // 60s por loop
+  }, 60000); // 60 segundos
 }
