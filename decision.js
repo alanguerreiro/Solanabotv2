@@ -1,28 +1,14 @@
 function decidirCompraVenda(token) {
-  const precoAtual = token.price;
-  const precoCompra = 5;
-  const alvoLucro = precoCompra * 2; // +100%
-  const stopLoss = precoCompra * 0.85; // -15%
+  const precoAtual = token.token_price;
+  const targetProfit = precoAtual * 2;      // +100%
+  const stopLoss = precoAtual * 0.85;       // -15%
 
-  // Se o token tiver potencial de 5x, 10x ou 100x, segura por até 5 horas
-  if (token.potential && [5, 10, 100].includes(token.potential)) {
-    const agora = Date.now();
-    const tempoDesdeCompra = agora - token.dataCompra;
+  // Exemplo de heurística fictícia para detectar 5x/10x/100x
+  if (token.potential && ["5x", "10x", "100x"].includes(token.potential)) {
+    return "HOLD";
+  }
 
-    // Esperar até 5h (18000000 ms)
-    if (tempoDesdeCompra < 18000000) {
-      return "AGUARDAR";
-    }
-  }
-
-  // Lógica de venda
-  if (precoAtual >= alvoLucro) {
-    return "VENDER";
-  }
-
-  if (precoAtual <= stopLoss) {
-    return "STOP";
-  }
-
-  return "MANTER";
+  if (precoAtual >= targetProfit) return "SELL";
+  if (precoAtual <= stopLoss) return "STOP";
+  return "BUY";
 }
