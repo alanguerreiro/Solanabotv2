@@ -1,95 +1,51 @@
-let walletAddress = null;
-let botAtivo = false;
-let loopInterval = null;
-
-// Função para log visual no console da interface
-function log(msg) {
-  const el = document.getElementById("console");
-  const linha = document.createElement("div");
-  linha.textContent = msg;
-  el.appendChild(linha);
-  el.scrollTop = el.scrollHeight;
-}
-
-// Atualiza o texto de status do bot
-function atualizaStatus(texto) {
-  document.getElementById("botStatus").textContent = texto;
-}
-
-// Conectar à carteira Phantom
-async function connectWallet() {
-  try {
-    const provider = window.solana;
-    if (!provider || !provider.isPhantom) {
-      alert("Phantom Wallet não encontrada!");
-      return;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🚀 SolanaBot V2</title>
+  <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@latest/lib/index.iife.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+      padding: 20px;
     }
 
-    const resp = await provider.connect();
-    walletAddress = resp.publicKey.toString();
-    log("✅ Carteira conectada: " + walletAddress);
-
-    atualizaStatus("Conectado");
-  } catch (err) {
-    console.error("❌ Erro ao conectar:", err);
-    alert("Erro ao conectar com a carteira.");
-  }
-}
-
-// Pausar o bot
-function pausarBot() {
-  botAtivo = false;
-  clearInterval(loopInterval);
-  atualizaStatus("⏸️ Pausado");
-  log("⏸️ Bot pausado.");
-}
-
-// Retomar o bot
-function retomarBot() {
-  if (!walletAddress) {
-    alert("Conecte a carteira primeiro.");
-    return;
-  }
-  iniciarBot();
-}
-
-// Iniciar o bot (com loop automático)
-function iniciarBot() {
-  if (botAtivo) return;
-
-  botAtivo = true;
-  atualizaStatus("🔁 Executando");
-
-  loopInterval = setInterval(executarBot, 60000); // a cada 60s
-  executarBot(); // executa de imediato
-}
-
-// Função principal do bot com scanner, decisão e swap
-async function executarBot() {
-  try {
-    const tokens = await buscarTokensPumpFun(); // scanner.js
-    log(`📦 Tokens encontrados: ${tokens.length}`);
-
-    for (const token of tokens) {
-      const decisao = decidirCompraVenda(token); // decision.js
-      log(`📊 Token = ${token.name} | Decisão: ${decisao}`);
-
-      if (decisao === "BUY") {
-        log(`🛒 Comprando $5 de ${token.name}`);
-        await executarSwap(token.address, walletAddress); // swap.js
-      }
-
-      if (decisao === "SELL") {
-        log(`💰 Vendendo ${token.name} com +100% de lucro`);
-        // futura venda...
-      }
-
-      if (decisao === "HOLD") {
-        log(`⏳ Aguardando possível 5x de ${token.name}`);
-      }
+    button {
+      padding: 10px;
+      margin: 5px;
+      font-weight: bold;
     }
-  } catch (err) {
-    console.error("❌ Erro durante execução do bot:", err);
-    log("❌ Erro durante execução do bot: " + err.message);
-  }
-}
+
+    #console {
+      background-color: #000;
+      color: #0f0;
+      padding: 10px;
+      font-family: monospace;
+      max-height: 300px;
+      overflow-y: auto;
+      border-radius: 5px;
+      margin-top: 20px;
+    }
+
+    #status {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h2>🚀 SolanaBot V2</h2>
+  <p>Conecte sua Phantom Wallet, configure os parâmetros e deixe o bot trabalhar por você.</p>
+
+  <button onclick="connectWallet()">✅ Conectar Phantom</button>
+  <button onclick="pausarBot()">⏸️ Pausar</button>
+  <button onclick="retomarBot()">🔁 Retomar</button>
+
+  <div id="status">🤖 Bot status: <span id="botStatus">Parado</span></div>
+  <div id="console"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
