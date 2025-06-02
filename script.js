@@ -1,16 +1,16 @@
-
 async function connectWallet() {
-  if (window.solana && window.solana.isPhantom) {
-    try {
-      const resp = await window.solana.connect();
-      console.log("Conectado à Phantom:", resp.publicKey.toString());
-      alert("Wallet conectada: " + resp.publicKey.toString());
-    } catch (err) {
-      console.error("Erro ao conectar:", err);
+  try {
+    const provider = window.solana;
+    if (!provider || !provider.isPhantom) {
+      alert("Phantom Wallet não encontrada!");
+      return;
     }
-  } else {
-    alert("Phantom Wallet não encontrada. Instale no navegador.");
+
+    const resp = await provider.connect();
+    console.log("Conectado:", resp.publicKey.toString());
+    alert("Wallet conectada: " + resp.publicKey.toString());
+  } catch (err) {
+    console.error("Erro ao conectar:", err);
+    alert("Erro ao conectar com a carteira.");
   }
 }
-
-// Placeholder para futura lógica de swap via Jupiter + scanner Pump.fun
