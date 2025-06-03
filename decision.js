@@ -1,32 +1,26 @@
 // decision.js
-const BUY_AMOUNT_USDC = 5;
-const PROFIT_TARGET_PERCENT = 100;
-const STOP_LOSS_PERCENT = 15;
-const MAX_HOLD_HOURS = 5;
+async function decideAction(token) {
+  const profitTarget = 2.0; // 100%
+  const stopLoss = 0.85;    // -15%
+  const entryPrice = token.entryPrice || 1; // valor fictício
 
-export function shouldBuy(token) {
-  // Exemplo: só comprar se marketCap for menor que 10k
-  return token.marketCap < 10000;
-}
+  const ageMinutes = (Date.now() - new Date(token.launchDate).getTime()) / 60000;
+  const currentPrice = token.currentPrice || entryPrice;
 
-export function shouldSell(entryPrice, currentPrice, entryTime) {
-  const profitPercent = ((currentPrice - entryPrice) / entryPrice) * 100;
-  const timeHeldHours = (Date.now() - entryTime) / (1000 * 60 * 60);
-
-  if (profitPercent >= PROFIT_TARGET_PERCENT) {
-    console.log("🟢 Alvo de lucro atingido: vendendo");
-    return true;
+  if (currentPrice >= entryPrice * profitTarget) {
+    console.log(`Token ${token.symbol} atingiu alvo de lucro`);
+    return "SELL";
   }
 
-  if (profitPercent <= -STOP_LOSS_PERCENT) {
-    console.log("🔴 Stop Loss atingido: vendendo");
-    return true;
+  if (currentPrice <= entryPrice * stopLoss) {
+    console.log(`Token ${token.symbol} atingiu stop loss`);
+    return "SELL";
   }
 
-  if (timeHeldHours >= MAX_HOLD_HOURS) {
-    console.log("⏰ Tempo máximo de espera atingido: vendendo");
-    return true;
+  if (ageMinutes < 300 && token.potentialMultiplier >= 5) {
+    console.log(`Token ${token.symbol} mantido por potencial`);
+    return "HOLD";
   }
 
-  return false;
+  return "HOLD";
 }
