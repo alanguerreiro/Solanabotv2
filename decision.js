@@ -1,14 +1,32 @@
-function decidirCompraVenda(token) {
-  const precoAtual = token.token_price;
-  const targetProfit = precoAtual * 2;      // +100%
-  const stopLoss = precoAtual * 0.85;       // -15%
+// decision.js
+const BUY_AMOUNT_USDC = 5;
+const PROFIT_TARGET_PERCENT = 100;
+const STOP_LOSS_PERCENT = 15;
+const MAX_HOLD_HOURS = 5;
 
-  // Exemplo de heurística fictícia para detectar 5x/10x/100x
-  if (token.potential && ["5x", "10x", "100x"].includes(token.potential)) {
-    return "HOLD";
-  }
+export function shouldBuy(token) {
+  // Exemplo: só comprar se marketCap for menor que 10k
+  return token.marketCap < 10000;
+}
 
-  if (precoAtual >= targetProfit) return "SELL";
-  if (precoAtual <= stopLoss) return "STOP";
-  return "BUY";
+export function shouldSell(entryPrice, currentPrice, entryTime) {
+  const profitPercent = ((currentPrice - entryPrice) / entryPrice) * 100;
+  const timeHeldHours = (Date.now() - entryTime) / (1000 * 60 * 60);
+
+  if (profitPercent >= PROFIT_TARGET_PERCENT) {
+    console.log("🟢 Alvo de lucro atingido: vendendo");
+    return true;
+  }
+
+  if (profitPercent <= -STOP_LOSS_PERCENT) {
+    console.log("🔴 Stop Loss atingido: vendendo");
+    return true;
+  }
+
+  if (timeHeldHours >= MAX_HOLD_HOURS) {
+    console.log("⏰ Tempo máximo de espera atingido: vendendo");
+    return true;
+  }
+
+  return false;
 }
