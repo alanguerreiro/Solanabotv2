@@ -1,31 +1,47 @@
-async function executarSwap(tokenAddress, wallet) {
-  try {
-    const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=${tokenAddress}&amount=5000000&slippage=5`;
-    const quoteRes = await fetch(quoteUrl);
-    const quote = await quoteRes.json();
+// swap.js
+import { Jupiter, RouteMap, createJupiterApiClient } from '@jup-ag/core';
+import { Connection, PublicKey, VersionedTransaction } from '@solana/web3.js';
 
-    const swapUrl = "https://quote-api.jup.ag/v6/swap";
-    const swapReq = {
-      route: quote.data[0],
-      userPublicKey: wallet.publicKey.toString(),
-      wrapUnwrapSOL: true,
-      feeAccount: null
-    };
+const RPC_ENDPOINT = "https://api.mainnet-beta.solana.com";
+const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"; // USDC SPL
+const connection = new Connection(RPC_ENDPOINT);
+const jupiter = createJupiterApiClient();
 
-    const swapRes = await fetch(swapUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(swapReq)
-    });
+export async function executeSwap({ wallet, inputMint, outputMint, amount }) {
+  try {
+    const routes = await jupiter.quoteGet({
+      inputMint,
+      outputMint,
+      amount: amount * 10 ** 6, // USDC has 6 decimals
+      slippageBps: 500, // 5% slippage
+      onlyDirectRoutes: false
+    });
 
-    const swapTx = await swapRes.json();
-    const tx = swapTx.swapTransaction;
-    const decodedTx = new Uint8Array(atob(tx).split("").map((c) => c.charCodeAt(0)));
+    if (!routes || !routes.data || routes.data.length === 0) {
+      console.error("⚠️ Nenhuma rota encontrada para o swap.");
+      return;
+    }
 
-    const signedTx = await wallet.signAndSendTransaction(decodedTx);
-    log(`✅ Swap executado com sucesso!`, signedTx);
-  } catch (err) {
-    console.error("❌ Erro no swap:", err);
-    alert("❌ Erro no swap");
-  }
+    const bestRoute = routes.data[0];
+    const swapResponse = await jupiter.swapPost({
+      swapRequest: {
+        route: bestRoute,
+        userPublicKey: wallet.publicKey.toString()
+      }
+    });
+
+    const { swapTransaction } = swapResponse;
+    if (!swapTransaction) {
+      console.error("❌ Falha ao gerar transação de swap.");
+      return;
+    }
+
+    const txBuf = Buffer.from(swapTransaction, "base64");
+    const transaction = VersionedTransaction.deserialize(txBuf);
+
+    const signed = await wallet.signAndSendTransaction(transaction);
+    console.log("✅ Swap enviado! TX:", signed);
+  } catch (err) {
+    console.error("❌ Erro durante o swap:", err.message || err);
+  }
 }
