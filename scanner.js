@@ -1,25 +1,18 @@
 // scanner.js
-export async function scanPumpFunTokens(limit = 5) {
+async function scanTokens() {
   try {
-    const response = await fetch("https://pump.fun/api/token/leaderboard");
-    const data = await response.json();
+    const response = await fetch("https://pump.fun/api/tokens");
+    const tokens = await response.json();
 
-    if (!Array.isArray(data)) {
-      console.error("Formato de dados inesperado:", data);
-      return [];
-    }
+    const recentTokens = tokens.filter(token => {
+      const ageMinutes = (Date.now() - new Date(token.launchDate).getTime()) / 60000;
+      return ageMinutes < 10 && token.liquidityUSD > 500;
+    });
 
-    const topTokens = data.slice(0, limit).map(token => ({
-      name: token.name,
-      mint: token.mint,
-      marketCap: token.marketCap,
-      price: token.price
-    }));
-
-    console.log("🚀 Tokens encontrados no Pump.fun:", topTokens);
-    return topTokens;
+    console.log("Tokens encontrados:", recentTokens.length);
+    return recentTokens;
   } catch (error) {
-    console.error("❌ Erro ao buscar tokens no Pump.fun:", error);
+    console.error("Erro ao buscar tokens:", error);
     return [];
   }
 }
