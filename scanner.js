@@ -1,18 +1,18 @@
-// scanner.js
-async function scanTokens() {
+async function buscarTokens() {
   try {
-    const response = await fetch("https://pump.fun/api/tokens");
-    const tokens = await response.json();
+    const response = await fetch("https://pump.fun/api/token/list");
+    const data = await response.json();
 
-    const recentTokens = tokens.filter(token => {
-      const ageMinutes = (Date.now() - new Date(token.launchDate).getTime()) / 60000;
-      return ageMinutes < 10 && token.liquidityUSD > 500;
-    });
-
-    console.log("Tokens encontrados:", recentTokens.length);
-    return recentTokens;
-  } catch (error) {
-    console.error("Erro ao buscar tokens:", error);
+    // Ordena pelos mais recentes
+    const tokensOrdenados = data.slice(0, 20); // ajustável
+    return tokensOrdenados.map(t => ({
+      symbol: t.symbol,
+      mint: t.mint,
+      name: t.name,
+      price: t.price,
+    }));
+  } catch (err) {
+    console.error("Erro no scanner:", err);
     return [];
   }
 }
