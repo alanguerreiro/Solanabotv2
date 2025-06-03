@@ -1,26 +1,25 @@
 // scanner.js
-const PUMP_FUN_API = "https://pump.fun/api/launches/recent";
-
-export async function getNewTokens(limit = 10) {
+export async function scanPumpFunTokens(limit = 5) {
   try {
-    const response = await fetch(`${PUMP_FUN_API}?limit=${limit}`);
-    if (!response.ok) throw new Error("Erro ao buscar tokens");
-
+    const response = await fetch("https://pump.fun/api/token/leaderboard");
     const data = await response.json();
-    const tokens = data
-      .filter(token => token && token.tokenAddress)
-      .map(token => ({
-        name: token.name,
-        address: token.tokenAddress,
-        creator: token.creator,
-        volume: token.volume,
-        marketCap: token.marketCap
-      }));
 
-    console.log(`🟢 ${tokens.length} tokens encontrados`);
-    return tokens;
+    if (!Array.isArray(data)) {
+      console.error("Formato de dados inesperado:", data);
+      return [];
+    }
+
+    const topTokens = data.slice(0, limit).map(token => ({
+      name: token.name,
+      mint: token.mint,
+      marketCap: token.marketCap,
+      price: token.price
+    }));
+
+    console.log("🚀 Tokens encontrados no Pump.fun:", topTokens);
+    return topTokens;
   } catch (error) {
-    console.error("❌ Erro no scanner:", error.message);
+    console.error("❌ Erro ao buscar tokens no Pump.fun:", error);
     return [];
   }
 }
