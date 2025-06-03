@@ -1,22 +1,11 @@
-let walletAddress = null;
-let botAtivo = false;
-let loopInterval = null;
+let running = false;
 
-// Função para log visual no console da interface
-function log(msg) {
-  const el = document.getElementById("console");
-  const linha = document.createElement("div");
-  linha.textContent = msg;
-  el.appendChild(linha);
-  el.scrollTop = el.scrollHeight;
+function logConsole(message) {
+  const consoleDiv = document.getElementById("console");
+  consoleDiv.innerHTML += `> ${message}<br>`;
+  consoleDiv.scrollTop = consoleDiv.scrollHeight;
 }
 
-// Atualiza o texto do status do bot
-function atualizaStatus(texto) {
-  document.getElementById("botStatus").textContent = texto;
-}
-
-// Conectar à carteira Phantom
 async function connectWallet() {
   try {
     const provider = window.solana;
@@ -26,70 +15,50 @@ async function connectWallet() {
     }
 
     const resp = await provider.connect();
-    walletAddress = resp.publicKey.toString();
-    log("🟢 Carteira conectada: " + walletAddress);
-    atualizaStatus("Executando");
-    iniciarBot();
+    window.connectedWallet = resp.publicKey.toString();
+    logConsole(`💼 Carteira conectada: ${window.connectedWallet}`);
+    document.getElementById("botStatus").innerText = "Conectado (Parado)";
   } catch (err) {
-    console.error("❌ Erro ao conectar:", err);
-    alert("Erro ao conectar com a carteira.");
+    logConsole("❌ Erro ao conectar carteira.");
   }
 }
 
-// Pausar o bot
 function pausarBot() {
-  botAtivo = false;
-  clearInterval(loopInterval);
-  atualizaStatus("⏸️ Pausado");
-  log("⏸️ Bot pausado.");
+  running = false;
+  document.getElementById("botStatus").innerText = "Pausado";
+  logConsole("⏸ Bot pausado.");
 }
 
-// Retomar o bot
 function retomarBot() {
-  if (!walletAddress) {
-    alert("Conecte a carteira primeiro.");
+  if (!window.connectedWallet) {
+    alert("Conecte a Phantom Wallet primeiro.");
     return;
   }
-  iniciarBot();
+  running = true;
+  document.getElementById("botStatus").innerText = "Rodando";
+  logConsole("🔁 Bot retomado.");
+  iniciarLoop();
 }
 
-// Iniciar o bot (com loop automático)
-function iniciarBot() {
-  if (botAtivo) return;
-  botAtivo = true;
-  atualizaStatus("🟢 Executando");
-  log("🚀 Bot iniciado.");
+async function iniciarLoop() {
+  while (running) {
+    try {
+      const tokens = await buscarTokens();
+      logConsole(`🔎 Tokens encontrados: ${tokens.length}`);
 
-  loopInterval = setInterval(executarBot, 60000); // a cada 60s
-  executarBot(); // executa de imediato
-}
-
-// Função principal do bot com scanner, decisão e swap
-async function executarBot() {
-  try {
-    const tokens = await scanTokens(); // scanner.js
-    log(`🔍 Tokens encontrados: ${tokens.length}`);
-
-    for (const token of tokens) {
-      const decision = decidirCompraVenda(token); // decision.js
-      log(`🧠 Token = ${token.name} | Decisão: ${decision}`);
-
-      if (decision === "BUY") {
-        log(`🟢 Comprando $5 de ${token.name}`);
-        await executarSwap(token.address, walletAddress); // swap.js
+      for (let token of tokens) {
+        const decisao = await analisarToken(token);
+        if (decisao === "COMPRAR") {
+          logConsole(`🚀 Comprando: ${token.symbol}`);
+          await realizarSwap(token);
+        } else {
+          logConsole(`❌ Ignorado: ${token.symbol}`);
+        }
       }
-
-      if (decision === "SELL") {
-        log(`💰 Vendendo ${token.name} com +100% de lucro`);
-        // lógica futura de venda
-      }
-
-      if (decision === "HOLD") {
-        log(`⏳ Aguardando possível 5x de ${token.name}`);
-      }
+    } catch (err) {
+      logConsole(`⚠️ Erro: ${err.message}`);
     }
-  } catch (err) {
-    console.error("❌ Erro durante execução do bot:", err);
-    log("❌ Erro durante execução do bot: " + err.message);
+
+    await new Promise(resolve => setTimeout(resolve, 15000)); // espera 15s
   }
 }
