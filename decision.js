@@ -1,26 +1,24 @@
-// decision.js
-async function decideAction(token) {
-  const profitTarget = 2.0; // 100%
-  const stopLoss = 0.85;    // -15%
-  const entryPrice = token.entryPrice || 1; // valor fictício
+// Parâmetros de decisão
+const BUY_AMOUNT_USDC = 5;
+const PROFIT_TARGET_PERCENT = 100;
+const STOP_LOSS_PERCENT = 15;
+const HOLD_HOURS_IF_POTENTIAL = 5;
 
-  const ageMinutes = (Date.now() - new Date(token.launchDate).getTime()) / 60000;
-  const currentPrice = token.currentPrice || entryPrice;
+function deveComprar(token) {
+  // Adicione lógica mais inteligente aqui se quiser
+  console.log("Analisando token:", token.name || token.symbol);
+  return true; // Por enquanto, comprar todos os tokens encontrados
+}
 
-  if (currentPrice >= entryPrice * profitTarget) {
-    console.log(`Token ${token.symbol} atingiu alvo de lucro`);
-    return "SELL";
-  }
+function deveVender(tokenInfo) {
+  const { currentPrice, buyPrice, timestamp } = tokenInfo;
 
-  if (currentPrice <= entryPrice * stopLoss) {
-    console.log(`Token ${token.symbol} atingiu stop loss`);
-    return "SELL";
-  }
+  const lucroPercentual = ((currentPrice - buyPrice) / buyPrice) * 100;
+  const tempoDecorridoHoras = (Date.now() - timestamp) / (1000 * 60 * 60);
 
-  if (ageMinutes < 300 && token.potentialMultiplier >= 5) {
-    console.log(`Token ${token.symbol} mantido por potencial`);
-    return "HOLD";
-  }
+  if (lucroPercentual >= PROFIT_TARGET_PERCENT) return true;
+  if (lucroPercentual <= -STOP_LOSS_PERCENT) return true;
+  if (tempoDecorridoHoras >= HOLD_HOURS_IF_POTENTIAL) return true;
 
-  return "HOLD";
+  return false;
 }
