@@ -1,17 +1,26 @@
-export async function buscarTokensPumpFun() {
+// scanner.js
+const PUMP_FUN_API = "https://pump.fun/api/launches/recent";
+
+export async function getNewTokens(limit = 10) {
   try {
-    const res = await fetch("https://lite-api.jup.ag/tokens/v1/mints/tradable");
-    const mints = await res.json();
+    const response = await fetch(`${PUMP_FUN_API}?limit=${limit}`);
+    if (!response.ok) throw new Error("Erro ao buscar tokens");
 
-    // Limita a 10 tokens para testes
-    const tokens = mints.slice(0, 10).map((mint) => ({
-      name: mint,
-      address: mint
-    }));
+    const data = await response.json();
+    const tokens = data
+      .filter(token => token && token.tokenAddress)
+      .map(token => ({
+        name: token.name,
+        address: token.tokenAddress,
+        creator: token.creator,
+        volume: token.volume,
+        marketCap: token.marketCap
+      }));
 
+    console.log(`🟢 ${tokens.length} tokens encontrados`);
     return tokens;
-  } catch (err) {
-    console.error("Erro ao buscar tokens:", err);
+  } catch (error) {
+    console.error("❌ Erro no scanner:", error.message);
     return [];
   }
 }
