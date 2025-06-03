@@ -1,47 +1,39 @@
-// swap.js
-import { Jupiter, RouteMap, createJupiterApiClient } from '@jup-ag/core';
+import { Jupiter, RouteMap, TOKEN_LIST_URL, createJupiterApiClient } from '@jup-ag/core';
 import { Connection, PublicKey, VersionedTransaction } from '@solana/web3.js';
 
-const RPC_ENDPOINT = "https://api.mainnet-beta.solana.com";
-const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"; // USDC SPL
-const connection = new Connection(RPC_ENDPOINT);
-const jupiter = createJupiterApiClient();
+const connection = new Connection('https://api.mainnet-beta.solana.com');
+const jupiter = await createJupiterApiClient(connection);
 
-export async function executeSwap({ wallet, inputMint, outputMint, amount }) {
+// Token padrão (USDC → token de destino)
+const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+async function fazerSwap(tokenDestinoMint, publicKey, provider) {
   try {
+    const amount = 5 * 10 ** 6; // $5 USDC = 5 * 10^6 (USDC tem 6 casas decimais)
+
     const routes = await jupiter.quoteGet({
-      inputMint,
-      outputMint,
-      amount: amount * 10 ** 6, // USDC has 6 decimals
-      slippageBps: 500, // 5% slippage
-      onlyDirectRoutes: false
+      inputMint: USDC_MINT,
+      outputMint: new PublicKey(tokenDestinoMint),
+      amount,
+      slippageBps: 500, // 5% de slippage
     });
 
-    if (!routes || !routes.data || routes.data.length === 0) {
-      console.error("⚠️ Nenhuma rota encontrada para o swap.");
+    if (!routes || !routes.routesInfos || routes.routesInfos.length === 0) {
+      console.warn("Nenhuma rota encontrada para o swap.");
       return;
     }
 
-    const bestRoute = routes.data[0];
-    const swapResponse = await jupiter.swapPost({
-      swapRequest: {
-        route: bestRoute,
-        userPublicKey: wallet.publicKey.toString()
-      }
+    const { swapTransaction } = await jupiter.exchange({
+      routeInfo: routes.routesInfos[0],
+      userPublicKey: publicKey,
     });
 
-    const { swapTransaction } = swapResponse;
-    if (!swapTransaction) {
-      console.error("❌ Falha ao gerar transação de swap.");
-      return;
-    }
-
-    const txBuf = Buffer.from(swapTransaction, "base64");
-    const transaction = VersionedTransaction.deserialize(txBuf);
-
-    const signed = await wallet.signAndSendTransaction(transaction);
-    console.log("✅ Swap enviado! TX:", signed);
+    const tx = VersionedTransaction.deserialize(Buffer.from(swapTransaction, 'base64'));
+    const signed = await provider.signAndSendTransaction(tx);
+    console.log("Swap enviado:", signed);
+    alert("Swap enviado com sucesso!");
   } catch (err) {
-    console.error("❌ Erro durante o swap:", err.message || err);
+    console.error("Erro ao fazer swap:", err);
+    alert("Erro ao realizar o swap.");
   }
 }
