@@ -1,4 +1,3 @@
-// Variáveis globais
 let walletAddress = null;
 let botAtivo = false;
 let loopInterval = null;
@@ -25,9 +24,11 @@ async function connectWallet() {
       alert("Phantom Wallet não encontrada!");
       return;
     }
+
     const resp = await provider.connect();
     walletAddress = resp.publicKey.toString();
-    log("✅ Carteira conectada: " + walletAddress);
+    log("🟢 Carteira conectada: " + walletAddress);
+    atualizaStatus("Executando");
     iniciarBot();
   } catch (err) {
     console.error("❌ Erro ao conectar:", err);
@@ -58,32 +59,33 @@ function iniciarBot() {
   botAtivo = true;
   atualizaStatus("🟢 Executando");
   log("🚀 Bot iniciado.");
-  executarBot(); // executa de imediato
+
   loopInterval = setInterval(executarBot, 60000); // a cada 60s
+  executarBot(); // executa de imediato
 }
 
 // Função principal do bot com scanner, decisão e swap
 async function executarBot() {
   try {
-    const tokens = await buscarTokensPumpFun(); // scanner.js
-    log("🔍 Tokens encontrados: " + tokens.length);
+    const tokens = await scanTokens(); // scanner.js
+    log(`🔍 Tokens encontrados: ${tokens.length}`);
 
     for (const token of tokens) {
       const decision = decidirCompraVenda(token); // decision.js
-      log("🧠 Token = " + token.name + " | Decisão: " + decision);
+      log(`🧠 Token = ${token.name} | Decisão: ${decision}`);
 
       if (decision === "BUY") {
-        log("🟢 Comprando 5$ de " + token.name);
-        await executarSwap(token.tokenAddress, window.solana); // swap.js
+        log(`🟢 Comprando $5 de ${token.name}`);
+        await executarSwap(token.address, walletAddress); // swap.js
       }
 
       if (decision === "SELL") {
-        log("🔴 Vendendo " + token.name + " com +100% de lucro");
+        log(`💰 Vendendo ${token.name} com +100% de lucro`);
         // lógica futura de venda
       }
 
       if (decision === "HOLD") {
-        log("⏳ Aguardando possível 5x de " + token.name);
+        log(`⏳ Aguardando possível 5x de ${token.name}`);
       }
     }
   } catch (err) {
