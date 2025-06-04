@@ -1,40 +1,45 @@
-import { analisarToken } from './decision.js';
+let intervalScanner;
+let tokensEncontrados = [];
 
-const BIRDEYE_API_KEY = 'f6238bead5294bc98607d0e4be6082d8'; // ✅ SUA CHAVE
-const INTERVALO_MS = 15000; // 15 segundos
-
-async function buscarTokensRecentes() {
+async function buscarTokensPumpFun() {
   try {
-    const res = await fetch('https://public-api.birdeye.so/public/token/solana/new-token', {
-      headers: {
-        'X-API-KEY': BIRDEYE_API_KEY
-      }
-    });
+    const response = await fetch('https://pump.fun/api/trending');
+    const data = await response.json();
 
-    const data = await res.json();
-
-    if (!data || !data.data || !Array.isArray(data.data)) {
-      console.log('Nenhum token encontrado.');
+    if (!data || !data.length) {
+      logConsole('Nenhum token novo encontrado.');
       return;
     }
 
-    console.log(`🔎 Tokens encontrados: ${data.data.length}`);
-    for (const token of data.data) {
-      const tokenInfo = {
-        address: token.address,
-        name: token.name,
-        symbol: token.symbol,
-        volume: token.volume_24h_usd || 0,
-        createdAt: token.created_at || Date.now()
-      };
+    const novosTokens = data
+      .filter(token => !tokensEncontrados.includes(token.tokenAddress))
+      .slice(0, 10); // Pega os 10 primeiros novos tokens
 
-      await analisarToken(tokenInfo);
+    if (novosTokens.length === 0) {
+      logConsole('Nenhum token novo desde a última verificação.');
+      return;
     }
+
+    for (const token of novosTokens) {
+      tokensEncontrados.push(token.tokenAddress);
+      logConsole(`🔍 Novo token encontrado: ${token.tokenSymbol} (${token.tokenAddress})`);
+      avaliarToken(token.tokenAddress); // envia para decision.js
+    }
+
+    document.getElementById('tokenCount').innerText = tokensEncontrados.length;
+
   } catch (error) {
-    console.error('❌ Erro ao buscar tokens:', error);
+    logConsole('Erro ao buscar tokens no Pump.fun: ' + error.message);
   }
 }
 
-// Inicia o scanner em loop
-setInterval(buscarTokensRecentes, INTERVALO_MS);
-console.log("🛰️ Scanner iniciado...");
+function iniciarScannerPump() {
+  tokensEncontrados = [];
+  intervalScanner = setInterval(buscarTokensPumpFun, 15000); // a cada 15s
+  logConsole('🔄 Scanner iniciado com Pump.fun...');
+}
+
+function pararScanner() {
+  clearInterval(intervalScanner);
+  logConsole('⛔ Scanner parado.');
+}
