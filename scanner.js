@@ -1,42 +1,40 @@
-const BIRDEYE_API_KEY = "f6238bead5294bc98607d0e4be6082d8";
+import { analisarToken } from './decision.js';
 
-async function buscarTokensPumpFun() {
-    const consoleDiv = document.getElementById("console");
-    const log = (msg) => {
-        const p = document.createElement("p");
-        p.textContent = msg;
-        consoleDiv.appendChild(p);
-    };
+const BIRDEYE_API_KEY = 'f6238bead5294bc98607d0e4be6082d8'; // ✅ SUA CHAVE
+const INTERVALO_MS = 15000; // 15 segundos
 
-    try {
-        const response = await fetch("https://public-api.birdeye.so/defi/tokenlist?sort_by=fdv&sort_type=desc&limit=15", {
-            headers: {
-                "accept": "application/json",
-                "x-api-key": BIRDEYE_API_KEY
-            }
-        });
+async function buscarTokensRecentes() {
+  try {
+    const res = await fetch('https://public-api.birdeye.so/public/token/solana/new-token', {
+      headers: {
+        'X-API-KEY': BIRDEYE_API_KEY
+      }
+    });
 
-        if (!response.ok) {
-            log(`Erro ao buscar tokens: ${response.status}`);
-            return [];
-        }
+    const data = await res.json();
 
-        const data = await response.json();
-        if (!data || !data.data || !data.data.tokens) {
-            log("Nenhum token encontrado na resposta.");
-            return [];
-        }
-
-        const tokens = data.data.tokens.map(token => ({
-            symbol: token.symbol,
-            address: token.address,
-            name: token.name
-        }));
-
-        log(`🔍 Tokens encontrados: ${tokens.length}`);
-        return tokens;
-    } catch (err) {
-        log("❌ Erro no scanner: " + err.message);
-        return [];
+    if (!data || !data.data || !Array.isArray(data.data)) {
+      console.log('Nenhum token encontrado.');
+      return;
     }
+
+    console.log(`🔎 Tokens encontrados: ${data.data.length}`);
+    for (const token of data.data) {
+      const tokenInfo = {
+        address: token.address,
+        name: token.name,
+        symbol: token.symbol,
+        volume: token.volume_24h_usd || 0,
+        createdAt: token.created_at || Date.now()
+      };
+
+      await analisarToken(tokenInfo);
+    }
+  } catch (error) {
+    console.error('❌ Erro ao buscar tokens:', error);
+  }
 }
+
+// Inicia o scanner em loop
+setInterval(buscarTokensRecentes, INTERVALO_MS);
+console.log("🛰️ Scanner iniciado...");
