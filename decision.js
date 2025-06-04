@@ -1,29 +1,37 @@
-const BUY_AMOUNT_USDC = 5;
-const PROFIT_TARGET_PERCENT = 100;
-const STOP_LOSS_PERCENT = 15;
-const HOLD_MAX_HOURS = 5;
+import { realizarSwap } from './swap.js';
 
-async function shouldBuyToken(tokenInfo) {
-    // Aqui você pode adicionar critérios mais avançados se quiser
-    return tokenInfo.symbol && tokenInfo.address;
-}
+let historicoCompras = {};
 
-async function shouldSellToken(purchaseData, currentPrice) {
-    const { buyPrice, timestamp } = purchaseData;
-    const profitPercent = ((currentPrice - buyPrice) / buyPrice) * 100;
-    const hoursHeld = (Date.now() - timestamp) / (1000 * 60 * 60);
+export async function analisarToken(tokenInfo) {
+  const { address, name, symbol, volume, createdAt } = tokenInfo;
 
-    if (profitPercent >= PROFIT_TARGET_PERCENT) {
-        return true; // Vender com lucro
-    }
+  const agora = Date.now();
+  const idadeTokenMinutos = (agora - new Date(createdAt).getTime()) / 60000;
 
-    if (profitPercent <= -STOP_LOSS_PERCENT) {
-        return true; // Stop loss
-    }
+  if (idadeTokenMinutos > 5) {
+    console.log(`Token ${symbol} tem mais de 5 minutos. Ignorado.`);
+    return;
+  }
 
-    if (hoursHeld >= HOLD_MAX_HOURS) {
-        return true; // Tempo máximo de espera
-    }
+  if (volume < 1000) {
+    console.log(`Token ${symbol} com volume baixo (${volume}). Ignorado.`);
+    return;
+  }
 
-    return false;
+  if (historicoCompras[address]) {
+    console.log(`Token ${symbol} já comprado. Ignorado.`);
+    return;
+  }
+
+  console.log(`🔍 Analisando ${symbol} (${address}) - Volume: ${volume}`);
+
+  const resultadoSwap = await realizarSwap(address);
+  console.log(`💰 Swap executado para ${symbol}: ${resultadoSwap}`);
+
+  historicoCompras[address] = {
+    compradoEm: agora,
+    status: "comprado",
+    nome: name,
+    symbol,
+  };
 }
