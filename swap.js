@@ -1,46 +1,42 @@
-import { Jupiter, RouteMap, TOKEN_LIST_URL } from '@jup-ag/core';
-import { Connection, PublicKey, VersionedTransaction } from '@solana/web3.js';
+import { Jupiter, RouteMap, TOKEN_LIST_URL } from "@jup-ag/core";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { getSwapTransaction } from "@jup-ag/core";
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection("https://api.mainnet-beta.solana.com");
+const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
-let jupiter;
-let routeMap;
+export async function realizarSwap(tokenAddress) {
+  try {
+    const provider = window.phantom?.solana;
+    if (!provider || !provider.publicKey) throw new Error("Carteira não conectada");
 
-async function initJupiter() {
-    const tokens = await (await fetch(TOKEN_LIST_URL['mainnet-beta'])).json();
-    const inputMint = tokens.find(t => t.symbol === 'USDC')?.address;
-    jupiter = await Jupiter.load({
-        connection,
-        cluster: 'mainnet-beta',
-        user: window.solana.publicKey,
+    const inputAmount = 5 * 10 ** 6; // $5 em USDC (com 6 casas decimais)
+
+    const jupiter = await Jupiter.load({
+      connection,
+      cluster: "mainnet-beta",
+      user: provider.publicKey,
     });
-    routeMap = jupiter.routeMap;
-}
 
-async function swapToken(tokenMint) {
-    try {
-        const inputMint = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'); // USDC
-        const outputMint = new PublicKey(tokenMint);
+    const routes = await jupiter.computeRoutes({
+      inputMint: USDC_MINT,
+      outputMint: new PublicKey(tokenAddress),
+      amount: inputAmount,
+      slippage: 15, // 15% stop loss
+      forceFetch: true,
+    });
 
-        const routes = await jupiter.computeRoutes({
-            inputMint,
-            outputMint,
-            amount: 5 * 10 ** 6, // $5 USDC (6 decimals)
-            slippage: 10,
-            forceFetch: true,
-        });
-
-        if (!routes.routesInfos || routes.routesInfos.length === 0) {
-            console.log('Nenhuma rota encontrada para o token:', tokenMint);
-            return;
-        }
-
-        const { execute } = await jupiter.exchange({ routeInfo: routes.routesInfos[0] });
-        const swapResult = await execute();
-        console.log('Swap realizado:', swapResult);
-    } catch (error) {
-        console.error('Erro ao fazer swap:', error);
+    if (!routes || !routes.routesInfos || routes.routesInfos.length === 0) {
+      return "Nenhuma rota de swap encontrada.";
     }
-}
 
-export { initJupiter, swapToken };
+    const { swapTransaction } = await jupiter.exchange({
+      routeInfo: routes.routesInfos[0],
+    });
+
+    const txid = await provider.signAndSendTransaction(swapTransaction);
+    return `Swap realizado com sucesso. TX: ${txid}`;
+  } catch (error) {
+    return `Erro ao executar swap: ${error.message}`;
+  }
+}
