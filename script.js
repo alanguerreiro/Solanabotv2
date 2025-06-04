@@ -1,80 +1,65 @@
-let botAtivo = false;
-let walletPublicKey = null;
+let botRunning = false;
+let intervalId = null;
 
 async function connectWallet() {
   try {
     const provider = window.phantom?.solana;
-    if (!provider) {
-      logConsole('Phantom Wallet não encontrada!');
-      return;
-    }
+    if (!provider || !provider.isPhantom) throw new Error("Phantom não encontrado");
 
     const resp = await provider.connect();
-    walletPublicKey = resp.publicKey.toString();
-    document.getElementById('wallet').innerText = `Carteira conectada: ${walletPublicKey}`;
-    logConsole(`Carteira conectada com sucesso: ${walletPublicKey}`);
+    const walletAddress = resp.publicKey.toString();
+
+    document.getElementById("status").innerText = "🟢 Carteira conectada: " + walletAddress;
+    document.getElementById("botStatus").innerText = "Parado";
+    logConsole("✅ Carteira conectada: " + walletAddress);
+
+    window.walletAddress = walletAddress;
   } catch (error) {
-    logConsole(`Erro ao conectar carteira: ${error.message}`);
+    logConsole("❌ Erro ao conectar carteira: " + error.message);
   }
 }
 
-function iniciarBot() {
-  if (!walletPublicKey) {
-    logConsole('Conecte a Phantom Wallet antes de iniciar o bot.');
-    return;
-  }
+function startBot() {
+  if (botRunning) return;
+  botRunning = true;
+  document.getElementById("botStatus").innerText = "Executando";
+  logConsole("✅ Bot iniciado.");
 
-  botAtivo = true;
-  document.getElementById('botStatus').innerText = 'Executando';
-  logConsole('Bot iniciado.');
-  executarScannerContinuo();
-}
-
-function pausarBot() {
-  botAtivo = false;
-  document.getElementById('botStatus').innerText = 'Pausado';
-  logConsole('Bot pausado.');
-}
-
-function retomarBot() {
-  if (!walletPublicKey) {
-    logConsole('Conecte a Phantom Wallet antes de retomar o bot.');
-    return;
-  }
-
-  botAtivo = true;
-  document.getElementById('botStatus').innerText = 'Executando';
-  logConsole('Bot retomado.');
-  executarScannerContinuo();
-}
-
-function logConsole(mensagem) {
-  const consoleDiv = document.getElementById('console');
-  const linha = document.createElement('div');
-  linha.innerText = mensagem;
-  consoleDiv.appendChild(linha);
-  consoleDiv.scrollTop = consoleDiv.scrollHeight;
-}
-
-async function executarScannerContinuo() {
-  while (botAtivo) {
+  intervalId = setInterval(async () => {
     try {
       const tokens = await buscarTokensPumpFun();
-      logConsole(`Tokens encontrados: ${tokens.length}`);
-
+      logConsole("🔍 Tokens encontrados: " + tokens.length);
       for (const token of tokens) {
-        if (!botAtivo) break;
-
-        const decisao = await avaliarToken(token);
-        if (decisao === 'comprar') {
-          const resultado = await realizarSwap(token);
-          logConsole(`Compra realizada: ${resultado}`);
+        const decision = await decidirCompra(token);
+        if (decision.comprar) {
+          logConsole("💸 Comprando token: " + token.symbol);
+          await executarSwap(token);
         }
       }
-    } catch (erro) {
-      logConsole(`Erro durante execução do bot: ${erro.message}`);
+    } catch (err) {
+      logConsole("❌ Erro no bot: " + err.message);
     }
+  }, 15000); // a cada 15 segundos
+}
 
-    await new Promise(resolve => setTimeout(resolve, 10000)); // 10 segundos
+function pauseBot() {
+  if (!botRunning) return;
+  clearInterval(intervalId);
+  botRunning = false;
+  document.getElementById("botStatus").innerText = "Pausado";
+  logConsole("⏸️ Bot pausado.");
+}
+
+function resumeBot() {
+  if (!botRunning) {
+    startBot();
   }
+}
+
+function logConsole(msg) {
+  const consoleBox = document.getElementById("console");
+  const line = document.createElement("div");
+  line.innerText = msg;
+  consoleBox.appendChild(line);
+  consoleBox.scrollTop = consoleBox.scrollHeight;
 }
