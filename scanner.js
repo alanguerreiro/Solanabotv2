@@ -1,32 +1,43 @@
-import { analisarToken } from './decision.js';
-
-const PUMP_FUN_API_URL = "https://pump.fun/api/trending";
-let tokensAnalisados = new Set();
+// scanner.js
+const BIRDEYE_API_KEY = "f6238bead5294bc98607d0e4be6082d8";
 
 async function buscarTokensPumpFun() {
-    try {
-        const resposta = await fetch(PUMP_FUN_API_URL);
-        const dados = await resposta.json();
+  logToConsole("🔍 Buscando novos tokens no Pump.fun...");
+  try {
+    const response = await fetch("https://client-api.pump.fun/tokens?sort=createdAt&limit=10");
+    const data = await response.json();
 
-        const novosTokens = dados.slice(0, 10); // top 10 tokens
+    const tokens = data?.tokens || [];
+    logToConsole(`✅ ${tokens.length} tokens encontrados no Pump.fun`);
 
-        for (const token of novosTokens) {
-            if (!tokensAnalisados.has(token.tokenAddress)) {
-                tokensAnalisados.add(token.tokenAddress);
+    for (const token of tokens) {
+      const tokenInfo = {
+        name: token.name,
+        symbol: token.symbol,
+        address: token.mint,
+      };
 
-                const tokenFormatado = {
-                    name: token.name || "Unknown",
-                    address: token.tokenAddress,
-                    price: token.price || 0
-                };
-
-                console.log(`🔍 Novo token detectado: ${tokenFormatado.name}`);
-                await analisarToken(tokenFormatado);
-            }
+      // Verifica dados adicionais com a Birdeye
+      const detalhes = await fetch(
+        `https://public-api.birdeye.so/public/token/basic-info?address=${tokenInfo.address}`,
+        {
+          headers: {
+            "X-API-KEY": BIRDEYE_API_KEY,
+            "accept": "application/json",
+          },
         }
-    } catch (erro) {
-        console.error("Erro ao buscar tokens do Pump.fun:", erro);
-    }
-}
+      );
 
-setInterval(buscarTokensPumpFun, 15000); // a cada 15s
+      const detalhesJson = await detalhes.json();
+
+      if (detalhesJson?.data?.price && detalhesJson?.data?.liquidity?.usd > 500) {
+        logToConsole(`🚀 Token detectado com liquidez > $500: ${tokenInfo.symbol}`);
+        avaliarCompra(tokenInfo); // Envia token para decision.js
+      } else {
+        logToConsole(`⚠️ Token ignorado: ${tokenInfo.symbol} - Baixa liquidez`);
+      }
+    }
+  } catch (error) {
+    logToConsole(`❌ Erro ao buscar tokens: ${error.message}`);
+  }
+}
