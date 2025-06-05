@@ -1,37 +1,42 @@
 // decision.js
 
-window.processarToken = async function (tokenData) {
-  try {
-    logConsole(`📊 Analisando token: ${tokenData.name} (${tokenData.symbol})`);
+// Função para decidir se o token é elegível para compra
+export function shouldBuyToken(tokenData) {
+  const preco = tokenData.price;
+  const volume = tokenData.volume;
+  const liquidez = tokenData.liquidity;
+  const minutosDesdeCriacao = tokenData.ageMinutes;
+  const marketCap = tokenData.marketCap;
 
-    // Lógica de decisão baseada no preço e volume
-    const preco = parseFloat(tokenData.price);
-    const volume = parseFloat(tokenData.volume || 0);
+  // Lógica para tokens pequenos com potencial
+  const precoAlvo = 0.01;
+  const volumeMinimo = 3000;
+  const liquidezMinima = 10000;
+  const tempoMaximo = 60; // minutos
+  const marketCapMax = 100000;
 
-    // Regras de exemplo: entrar se o token for muito novo e barato
-    if (preco < 0.01 && volume < 5000) {
-      logConsole(`✅ Condições atendidas para compra de ${tokenData.symbol}. Executando swap...`);
-      await executarSwap(tokenData.address);
-    } else {
-      logConsole(`❌ ${tokenData.symbol} não atende os critérios de compra.`);
-    }
-  } catch (error) {
-    logConsole(`❌ Erro ao processar token ${tokenData.symbol}: ${error.message}`);
-  }
-};
+  const elegivel = (
+    preco < precoAlvo &&
+    volume > volumeMinimo &&
+    liquidez > liquidezMinima &&
+    minutosDesdeCriacao < tempoMaximo &&
+    marketCap < marketCapMax
+  );
 
-// Função de swap simulada para testar (em produção, swap.js real fará isso)
-async function executarSwap(tokenAddress) {
-  try {
-    logConsole(`🔄 Iniciando swap para token: ${tokenAddress}`);
-    
-    // Aqui chamaria window.realizarSwap(tokenAddress) no swap.js
-    if (window.realizarSwap) {
-      await window.realizarSwap(tokenAddress);
-    } else {
-      logConsole("⚠️ Função de swap real não implementada. Apenas simulação.");
-    }
-  } catch (error) {
-    logConsole(`❌ Falha ao tentar swap: ${error.message}`);
-  }
+  if (elegivel) {
+    console.log("✅ Token elegível para compra:", tokenData);
+  } else {
+    console.log("❌ Token ignorado:", tokenData);
+  }
+
+  return elegivel;
+}
+
+// Estratégia de retenção de até 5h caso identifique potencial de 5x ou mais
+export function shouldHold(tokenMetrics) {
+  if (tokenMetrics.potentialMultiplier >= 5) {
+    console.log("⏳ Token mantido por potencial de múltiplo:", tokenMetrics);
+    return true;
+  }
+  return false;
 }
