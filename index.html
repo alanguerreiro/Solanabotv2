@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>🚀 SolanaBot V2</title>
   <style>
     body {
@@ -9,43 +10,45 @@
       background-color: #f2f2f2;
       padding: 20px;
     }
+
     button {
       padding: 10px;
       margin: 5px;
       font-weight: bold;
+      cursor: pointer;
     }
+
     #console {
       background-color: #000;
       color: #0f0;
       font-family: monospace;
-      padding: 10px;
+      padding: 12px;
       height: 300px;
       overflow-y: auto;
       border-radius: 5px;
-      margin-top: 15px;
-      white-space: pre-wrap;
+      margin-top: 20px;
+    }
+
+    .status {
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-
   <h2>🚀 SolanaBot V2</h2>
   <p>Conecte sua Phantom Wallet, configure os parâmetros e deixe o bot trabalhar por você.</p>
 
   <button onclick="connectWallet()">🟢 Conectar Phantom</button>
   <button onclick="pausarBot()">⏸️ Pausar</button>
-  <button onclick="retomarBot()">🔁 Retomar</button>
+  <button onclick="retomarBot()">▶️ Retomar</button>
 
-  <div id="status">
-    🟡 Bot status: <span id="botStatus">Parado</span><br>
-    🟡 <span id="carteiraStatus">Carteira conectada: ---</span><br>
-    🟢 Bot iniciado.<br>
-    🔍 Tokens encontrados: <span id="tokenCount">0</span>
-  </div>
+  <p class="status">🟡 Bot status: <span id="botStatus">Parado</span></p>
+  <p class="status">🟡 Carteira conectada: <span id="walletAddress">---</span></p>
+  <p class="status">🟢 Bot iniciado.</p>
+  <p class="status">🔍 Tokens encontrados: <span id="tokenCount">0</span></p>
 
   <div id="console"></div>
 
-  <!-- Scripts -->
   <script src="scanner.js"></script>
   <script src="decision.js"></script>
   <script src="swap.js"></script>
