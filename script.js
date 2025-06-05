@@ -1,91 +1,62 @@
-let wallet = null;
-let isRunning = false;
+window.onload = function () {
+  let isRunning = false;
+  let walletPublicKey = null;
 
-async function connectWallet() {
-  logConsole("🟡 Tentando conectar à Phantom Wallet...");
+  async function connectWallet() {
+    logToConsole('🔄 Tentando conectar à Phantom Wallet...');
+    try {
+      const resp = await window.solana.connect();
+      walletPublicKey = resp.publicKey.toString();
+      document.getElementById('walletAddress').innerText = walletPublicKey;
+      document.getElementById('walletAddress').style.color = 'lime';
+      logToConsole(`✅ Carteira conectada: ${walletPublicKey}`);
+      startBot();
+    } catch (err) {
+      logToConsole(`❌ Erro ao conectar carteira: ${err.message || err}`);
+    }
+  }
 
-  try {
-    const provider = window.solana;
-    if (!provider || !provider.isPhantom) {
-      throw new Error("Phantom Wallet não encontrada. Instale a extensão.");
-    }
+  function logToConsole(message) {
+    const consoleElement = document.getElementById('console');
+    const time = new Date().toLocaleTimeString();
+    const formatted = `[${time}] ${message}`;
+    consoleElement.innerHTML += `<div>${formatted}</div>`;
+    consoleElement.scrollTop = consoleElement.scrollHeight;
+  }
 
-    const resp = await provider.connect();
-    wallet = provider;
+  function startBot() {
+    if (!walletPublicKey) {
+      logToConsole("⚠️ Conecte a carteira antes de iniciar o bot.");
+      return;
+    }
 
-    document.getElementById("walletAddress").innerText = resp.publicKey.toString();
-    logConsole("🟢 Carteira conectada: " + resp.publicKey.toString());
+    isRunning = true;
+    document.getElementById('botStatus').innerText = 'Executando';
+    document.getElementById('botStatus').style.color = 'lime';
+    logToConsole("✅ Bot iniciado.");
+    // Aqui você pode chamar scanner.js ou outras rotinas
+  }
 
-    startBot();
-  } catch (err) {
-    logConsole("❌ Erro ao conectar carteira: " + err.message);
-  }
-}
+  function pauseBot() {
+    isRunning = false;
+    document.getElementById('botStatus').innerText = 'Pausado';
+    document.getElementById('botStatus').style.color = 'orange';
+    logToConsole("⏸ Bot pausado.");
+  }
 
-function startBot() {
-  if (!wallet) {
-    logConsole("❌ Conecte uma carteira primeiro.");
-    return;
-  }
+  function resumeBot() {
+    if (walletPublicKey) {
+      isRunning = true;
+      document.getElementById('botStatus').innerText = 'Executando';
+      document.getElementById('botStatus').style.color = 'lime';
+      logToConsole("▶️ Bot retomado.");
+    } else {
+      logToConsole("⚠️ Carteira não conectada.");
+    }
+  }
 
-  isRunning = true;
-  document.getElementById("botStatus").innerText = "Executando";
-  logConsole("🤖 Bot iniciado...");
-
-  runScanner();
-}
-
-function pauseBot() {
-  isRunning = false;
-  document.getElementById("botStatus").innerText = "Pausado";
-  logConsole("⏸️ Bot pausado.");
-}
-
-function resumeBot() {
-  if (!wallet) {
-    logConsole("❌ Conecte uma carteira primeiro.");
-    return;
-  }
-
-  isRunning = true;
-  document.getElementById("botStatus").innerText = "Executando";
-  logConsole("▶️ Bot retomado.");
-  runScanner();
-}
-
-async function runScanner() {
-  if (!isRunning) return;
-
-  try {
-    logConsole("🔍 Procurando tokens...");
-    const tokens = await buscarTokensPumpFun();
-
-    logConsole("📦 Tokens encontrados: " + tokens.length);
-    document.getElementById("tokensFound").innerText = tokens.length;
-
-    for (const token of tokens) {
-      if (!isRunning) break;
-
-      logConsole(`⚙️ Analisando ${token.symbol} (${token.address})`);
-      const shouldBuy = await shouldBuyToken(token);
-      if (shouldBuy) {
-        logConsole(`💰 Decisão: COMPRAR ${token.symbol}`);
-        await executeSwap(token);
-      } else {
-        logConsole(`❌ Decisão: Ignorar ${token.symbol}`);
-      }
-    }
-  } catch (err) {
-    logConsole("❌ Erro no scanner: " + err.message);
-  }
-
-  setTimeout(runScanner, 10000); // Repetição a cada 10 segundos
-}
-
-function logConsole(msg) {
-  const consoleEl = document.getElementById("console");
-  if (!consoleEl) return;
-  const time = new Date().toLocaleTimeString();
-  consoleEl.innerText += `[${time}] ${msg}\n`;
-  consoleEl.scrollTop = consoleEl.scrollHeight;
-}
+  // Botões
+  document.querySelector('button[onclick="connectWallet()"]').onclick = connectWallet;
+  document.querySelector('button[onclick="pausarBot()"]').onclick = pauseBot;
+  document.querySelector('button[onclick="retomarBot()"]').onclick = resumeBot;
+};
