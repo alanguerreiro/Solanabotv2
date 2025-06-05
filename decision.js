@@ -1,37 +1,37 @@
-import { realizarSwap } from './swap.js';
+// decision.js
 
-let historicoCompras = {};
+window.processarToken = async function (tokenData) {
+  try {
+    logConsole(`📊 Analisando token: ${tokenData.name} (${tokenData.symbol})`);
 
-export async function analisarToken(tokenInfo) {
-  const { address, name, symbol, volume, createdAt } = tokenInfo;
+    // Lógica de decisão baseada no preço e volume
+    const preco = parseFloat(tokenData.price);
+    const volume = parseFloat(tokenData.volume || 0);
 
-  const agora = Date.now();
-  const idadeTokenMinutos = (agora - new Date(createdAt).getTime()) / 60000;
+    // Regras de exemplo: entrar se o token for muito novo e barato
+    if (preco < 0.01 && volume < 5000) {
+      logConsole(`✅ Condições atendidas para compra de ${tokenData.symbol}. Executando swap...`);
+      await executarSwap(tokenData.address);
+    } else {
+      logConsole(`❌ ${tokenData.symbol} não atende os critérios de compra.`);
+    }
+  } catch (error) {
+    logConsole(`❌ Erro ao processar token ${tokenData.symbol}: ${error.message}`);
+  }
+};
 
-  if (idadeTokenMinutos > 5) {
-    console.log(`Token ${symbol} tem mais de 5 minutos. Ignorado.`);
-    return;
-  }
-
-  if (volume < 1000) {
-    console.log(`Token ${symbol} com volume baixo (${volume}). Ignorado.`);
-    return;
-  }
-
-  if (historicoCompras[address]) {
-    console.log(`Token ${symbol} já comprado. Ignorado.`);
-    return;
-  }
-
-  console.log(`🔍 Analisando ${symbol} (${address}) - Volume: ${volume}`);
-
-  const resultadoSwap = await realizarSwap(address);
-  console.log(`💰 Swap executado para ${symbol}: ${resultadoSwap}`);
-
-  historicoCompras[address] = {
-    compradoEm: agora,
-    status: "comprado",
-    nome: name,
-    symbol,
-  };
+// Função de swap simulada para testar (em produção, swap.js real fará isso)
+async function executarSwap(tokenAddress) {
+  try {
+    logConsole(`🔄 Iniciando swap para token: ${tokenAddress}`);
+    
+    // Aqui chamaria window.realizarSwap(tokenAddress) no swap.js
+    if (window.realizarSwap) {
+      await window.realizarSwap(tokenAddress);
+    } else {
+      logConsole("⚠️ Função de swap real não implementada. Apenas simulação.");
+    }
+  } catch (error) {
+    logConsole(`❌ Falha ao tentar swap: ${error.message}`);
+  }
 }
