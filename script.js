@@ -1,80 +1,61 @@
 let botRunning = false;
 let paused = false;
 
-function logToConsole(message, type = 'info') {
-    const consoleDiv = document.getElementById('console');
-    const timestamp = new Date().toLocaleTimeString();
-    const color = type === 'error' ? 'red' : type === 'success' ? 'lime' : 'white';
-    consoleDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
-    consoleDiv.scrollTop = consoleDiv.scrollHeight;
-}
-
 async function connectWallet() {
-    try {
-        logToConsole("Tentando conectar à Phantom Wallet...");
-        const provider = window.phantom?.solana;
+    log("🟠 Tentando conectar à Phantom Wallet...");
+    try {
+        const provider = window.solana;
+        if (!provider || !provider.isPhantom) {
+            log("❌ Phantom Wallet não encontrada.");
+            return;
+        }
 
-        if (!provider || !provider.isPhantom) {
-            throw new Error("Phantom Wallet não encontrada.");
-        }
-
-        const resp = await provider.connect();
-        const publicKey = resp.publicKey.toString();
-        document.getElementById("walletAddress").innerText = publicKey;
-        logToConsole(`Carteira conectada: ${publicKey}`, 'success');
-
-        startBot();
-    } catch (error) {
-        logToConsole(`Erro ao conectar carteira: ${error.message}`, 'error');
-    }
-}
-
-function startBot() {
-    logToConsole("Bot iniciado.", 'success');
-    botRunning = true;
-    paused = false;
-    document.getElementById("botStatus").innerText = "Executando";
-    runBot();
+        const resp = await provider.connect();
+        const walletAddress = resp.publicKey.toString();
+        document.getElementById("walletAddress").innerText = walletAddress;
+        log(`✅ Carteira conectada: ${walletAddress}`);
+        startBotLoop(provider);
+    } catch (err) {
+        log(`❌ Erro ao conectar carteira: ${err.message}`);
+    }
 }
 
 function pauseBot() {
-    botRunning = false;
-    paused = true;
-    document.getElementById("botStatus").innerText = "Pausado";
-    logToConsole("Bot pausado.", 'info');
+    paused = true;
+    document.getElementById("botStatus").innerText = "Pausado";
+    log("⏸️ Bot pausado.");
 }
 
 function resumeBot() {
-    if (!botRunning) {
-        botRunning = true;
-        paused = false;
-        document.getElementById("botStatus").innerText = "Executando";
-        logToConsole("Bot retomado.", 'info');
-        runBot();
-    }
+    paused = false;
+    document.getElementById("botStatus").innerText = "Executando";
+    log("▶️ Bot retomado.");
 }
 
-async function runBot() {
-    while (botRunning && !paused) {
-        try {
-            const tokens = await buscarTokensPumpFun(); // scanner.js
-            document.getElementById("tokenCount").innerText = tokens.length;
-            logToConsole(`Tokens encontrados: ${tokens.length}`, 'info');
+function log(message) {
+    const consoleElement = document.getElementById("console");
+    const time = new Date().toLocaleTimeString();
+    const entry = `[${time}] ${message}`;
+    consoleElement.innerText += entry + "\n";
+    consoleElement.scrollTop = consoleElement.scrollHeight;
+}
 
-            for (const token of tokens) {
-                if (!botRunning || paused) break;
+async function startBotLoop(provider) {
+    if (botRunning) return;
+    botRunning = true;
+    document.getElementById("botStatus").innerText = "Executando";
+    log("🟢 Bot iniciado.");
 
-                const decisao = await analisarToken(token); // decision.js
-                if (decisao.comprar) {
-                    logToConsole(`Comprando ${token.symbol}...`);
-                    const resultado = await executarSwap(token); // swap.js
-                    logToConsole(`Resultado do swap: ${resultado.status}`, resultado.status === "sucesso" ? "success" : "error");
-                }
-            }
-        } catch (err) {
-            logToConsole(`Erro no loop do bot: ${err.message}`, 'error');
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 30000));
-    }
+    try {
+        while (botRunning) {
+            if (paused) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                continue;
+            }
+            await buscarTokensPumpFun(); // Função do scanner.js
+            await new Promise(resolve => setTimeout(resolve, 6000)); // Delay entre loops
+        }
+    } catch (error) {
+        log(`❌ Erro no loop do bot: ${error.message}`);
+    }
 }
