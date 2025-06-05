@@ -1,45 +1,51 @@
-import { Jupiter, RouteInfo } from '@jup-ag/core';
-import { Connection, Keypair, PublicKey, VersionedTransaction } from '@solana/web3.js';
+import { Connection, Keypair, VersionedTransaction, PublicKey } from "@solana/web3.js";
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
-const provider = window.phantom?.solana;
+let provider = window.solana;
 
-export async function executarSwap(token) {
-    try {
-        if (!provider || !provider.publicKey) {
-            throw new Error("Carteira Phantom não conectada.");
-        }
+async function swapToken(inputMint, outputMint, amount, connection, walletPublicKey) {
+  const jupiter = await Jupiter.load({
+    connection,
+    cluster: "mainnet-beta",
+    user: walletPublicKey,
+  });
 
-        const jupiter = await Jupiter.load({
-            connection,
-            cluster: 'mainnet-beta',
-            user: provider.publicKey,
-        });
+  const routes = await jupiter.computeRoutes({
+    inputMint: new PublicKey(inputMint),
+    outputMint: new PublicKey(outputMint),
+    amount,
+    slippage: 1, // 1%
+    forceFetch: true,
+  });
 
-        const routes = await jupiter.computeRoutes({
-            inputMint: new PublicKey("Es9vMFrzaCERsBYX2pzEgdHcYt1UuFXQ8E9uQg9P9GZb"), // USDC
-            outputMint: new PublicKey(token.address),
-            amount: 5 * 10 ** 6, // 5 USDC (6 decimais)
-            slippage: 15,
-        });
+  const bestRoute = routes?.routesInfos[0];
 
-        if (!routes.routesInfos.length) {
-            return { status: "erro", mensagem: "Nenhuma rota encontrada." };
-        }
+  if (!bestRoute) {
+    console.log("⚠️ No swap route found.");
+    return;
+  }
 
-        const bestRoute = routes.routesInfos[0];
-        const { execute } = await jupiter.exchange({
-            routeInfo: bestRoute,
-        });
+  const { execute } = await jupiter.exchange({ routeInfo: bestRoute });
 
-        const swapResult = await execute();
+  const swapResult = await execute();
+  if (swapResult.error) {
+    console.log("❌ Swap failed:", swapResult.error);
+  } else {
+    console.log("✅ Swap successful:", swapResult.txid);
+  }
+}
 
-        if (swapResult.error) {
-            return { status: "erro", mensagem: swapResult.error.message };
-        }
-
-        return { status: "sucesso", assinatura: swapResult.txid };
-    } catch (error) {
-        return { status: "erro", mensagem: error.message };
+export async function executeSwap(inputMint, outputMint, amount) {
+  try {
+    const connection = new Connection("https://api.mainnet-beta.solana.com");
+    if (!provider?.isPhantom) {
+      throw new Error("Phantom Wallet not found.");
     }
+
+    const resp = await provider.connect();
+    const walletPublicKey = new PublicKey(resp.publicKey.toString());
+
+    await swapToken(inputMint, outputMint, amount, connection, walletPublicKey);
+  } catch (err) {
+    console.error("❌ Swap execution error:", err.message);
+  }
 }
