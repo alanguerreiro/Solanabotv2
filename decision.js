@@ -1,29 +1,50 @@
-// decision.js
+import { Jupiter, RouteMap, createJupiterApiClient } from "@jup-ag/core";
+import { Connection, PublicKey, Keypair, Transaction } from "@solana/web3.js";
 
-function avaliarCompra(token) {
-  const BUY_AMOUNT_USDC = 5;
-  const PROFIT_TARGET_PERCENT = 100;
-  const STOP_LOSS_PERCENT = 15;
-  const MAX_HOLD_TIME_MS = 5 * 60 * 60 * 1000; // 5 horas
+const connection = new Connection("https://api.mainnet-beta.solana.com");
+const apiClient = createJupiterApiClient();
 
-  logToConsole(`📊 Avaliando token ${token.symbol} (${token.address})`);
+export async function executarSwap(token) {
+    try {
+        const phantomProvider = window?.phantom?.solana;
+        if (!phantomProvider?.publicKey) {
+            throw new Error("Phantom Wallet não conectada.");
+        }
 
-  // Simula decisão de compra automática
-  const shouldBuy = true; // Aqui pode inserir sua lógica extra se quiser
+        const owner = phantomProvider.publicKey;
+        const inputMint = new PublicKey("Es9vMFrzaCERntbLxjtsP79Zx5ecTXZzK2L9nqkdD7i"); // USDT
+        const outputMint = new PublicKey(token.address); // Token alvo
+        const amount = 5 * 10 ** 6; // 5 USDT (USDT tem 6 casas decimais)
 
-  if (shouldBuy) {
-    logToConsole(`🟢 Decisão: Comprar $${BUY_AMOUNT_USDC} de ${token.symbol}`);
-    
-    realizarSwap(token.address, BUY_AMOUNT_USDC)
-      .then((txId) => {
-        logToConsole(`✅ Swap realizado com sucesso! TX: ${txId}`);
+        const jupiter = await Jupiter.load({
+            connection,
+            cluster: "mainnet-beta",
+            user: owner,
+        });
 
-        monitorarLucroOuPrejuizo(token, BUY_AMOUNT_USDC, PROFIT_TARGET_PERCENT, STOP_LOSS_PERCENT, MAX_HOLD_TIME_MS);
-      })
-      .catch((err) => {
-        logToConsole(`❌ Falha ao comprar ${token.symbol}: ${err.message}`);
-      });
-  } else {
-    logToConsole(`🔴 Decisão: Ignorar ${token.symbol}`);
-  }
+        const routes = await jupiter.computeRoutes({
+            inputMint,
+            outputMint,
+            amount,
+            slippageBps: 500, // 5% slippage
+            forceFetch: true,
+        });
+
+        if (!routes.routesInfos || routes.routesInfos.length === 0) {
+            throw new Error("Nenhuma rota encontrada para swap.");
+        }
+
+        const swapResult = await jupiter.exchange({
+            routeInfo: routes.routesInfos[0],
+        });
+
+        if (swapResult.error) {
+            throw new Error(`Erro ao executar swap: ${swapResult.error}`);
+        }
+
+        const signedTx = await phantomProvider.signAndSendTransaction(swapResult.tx);
+        logToConsole(`✅ Swap executado com sucesso. TX ID: ${signedTx.signature}`);
+    } catch (err) {
+        logToConsole(`❌ Erro ao executar swap: ${err.message}`);
+    }
 }
