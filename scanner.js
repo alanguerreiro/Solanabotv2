@@ -1,45 +1,44 @@
-let intervalScanner;
-let tokensEncontrados = [];
+// scanner.js
+
+let running = true;
 
 async function buscarTokensPumpFun() {
+  if (!running) return;
+
   try {
-    const response = await fetch('https://pump.fun/api/trending');
-    const data = await response.json();
+    const response = await fetch("https://pump.fun/api/trending");
+    const tokens = await response.json();
 
-    if (!data || !data.length) {
-      logConsole('Nenhum token novo encontrado.');
-      return;
+    if (tokens && Array.isArray(tokens)) {
+      for (const token of tokens) {
+        const tokenData = {
+          address: token?.mint,
+          name: token?.name,
+          symbol: token?.symbol,
+          volume: token?.volume,
+          price: token?.price,
+        };
+
+        logConsole(`🔍 Token detectado: ${tokenData.name} (${tokenData.symbol}) - $${tokenData.price}`);
+        window.processarToken(tokenData); // Envia para decision.js
+      }
+    } else {
+      logConsole("⚠️ Nenhum token válido retornado do Pump.fun.");
     }
-
-    const novosTokens = data
-      .filter(token => !tokensEncontrados.includes(token.tokenAddress))
-      .slice(0, 10); // Pega os 10 primeiros novos tokens
-
-    if (novosTokens.length === 0) {
-      logConsole('Nenhum token novo desde a última verificação.');
-      return;
-    }
-
-    for (const token of novosTokens) {
-      tokensEncontrados.push(token.tokenAddress);
-      logConsole(`🔍 Novo token encontrado: ${token.tokenSymbol} (${token.tokenAddress})`);
-      avaliarToken(token.tokenAddress); // envia para decision.js
-    }
-
-    document.getElementById('tokenCount').innerText = tokensEncontrados.length;
-
   } catch (error) {
-    logConsole('Erro ao buscar tokens no Pump.fun: ' + error.message);
+    logConsole(`❌ Erro ao buscar tokens do Pump.fun: ${error.message}`);
   }
+
+  setTimeout(buscarTokensPumpFun, 60000); // Repetir a cada 60 segundos
 }
 
-function iniciarScannerPump() {
-  tokensEncontrados = [];
-  intervalScanner = setInterval(buscarTokensPumpFun, 15000); // a cada 15s
-  logConsole('🔄 Scanner iniciado com Pump.fun...');
+function iniciarScanner() {
+  running = true;
+  logConsole("🚀 Scanner iniciado...");
+  buscarTokensPumpFun();
 }
 
 function pararScanner() {
-  clearInterval(intervalScanner);
-  logConsole('⛔ Scanner parado.');
+  running = false;
+  logConsole("⏹️ Scanner pausado.");
 }
