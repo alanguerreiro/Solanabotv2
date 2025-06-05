@@ -1,65 +1,91 @@
-let botRunning = false;
-let intervalId = null;
+let wallet = null;
+let isRunning = false;
 
 async function connectWallet() {
+  logConsole("🟡 Tentando conectar à Phantom Wallet...");
+
   try {
-    const provider = window.phantom?.solana;
-    if (!provider || !provider.isPhantom) throw new Error("Phantom não encontrado");
+    const provider = window.solana;
+    if (!provider || !provider.isPhantom) {
+      throw new Error("Phantom Wallet não encontrada. Instale a extensão.");
+    }
 
     const resp = await provider.connect();
-    const walletAddress = resp.publicKey.toString();
+    wallet = provider;
 
-    document.getElementById("status").innerText = "🟢 Carteira conectada: " + walletAddress;
-    document.getElementById("botStatus").innerText = "Parado";
-    logConsole("✅ Carteira conectada: " + walletAddress);
+    document.getElementById("walletAddress").innerText = resp.publicKey.toString();
+    logConsole("🟢 Carteira conectada: " + resp.publicKey.toString());
 
-    window.walletAddress = walletAddress;
-  } catch (error) {
-    logConsole("❌ Erro ao conectar carteira: " + error.message);
+    startBot();
+  } catch (err) {
+    logConsole("❌ Erro ao conectar carteira: " + err.message);
   }
 }
 
 function startBot() {
-  if (botRunning) return;
-  botRunning = true;
-  document.getElementById("botStatus").innerText = "Executando";
-  logConsole("✅ Bot iniciado.");
+  if (!wallet) {
+    logConsole("❌ Conecte uma carteira primeiro.");
+    return;
+  }
 
-  intervalId = setInterval(async () => {
-    try {
-      const tokens = await buscarTokensPumpFun();
-      logConsole("🔍 Tokens encontrados: " + tokens.length);
-      for (const token of tokens) {
-        const decision = await decidirCompra(token);
-        if (decision.comprar) {
-          logConsole("💸 Comprando token: " + token.symbol);
-          await executarSwap(token);
-        }
-      }
-    } catch (err) {
-      logConsole("❌ Erro no bot: " + err.message);
-    }
-  }, 15000); // a cada 15 segundos
+  isRunning = true;
+  document.getElementById("botStatus").innerText = "Executando";
+  logConsole("🤖 Bot iniciado...");
+
+  runScanner();
 }
 
 function pauseBot() {
-  if (!botRunning) return;
-  clearInterval(intervalId);
-  botRunning = false;
+  isRunning = false;
   document.getElementById("botStatus").innerText = "Pausado";
   logConsole("⏸️ Bot pausado.");
 }
 
 function resumeBot() {
-  if (!botRunning) {
-    startBot();
+  if (!wallet) {
+    logConsole("❌ Conecte uma carteira primeiro.");
+    return;
   }
+
+  isRunning = true;
+  document.getElementById("botStatus").innerText = "Executando";
+  logConsole("▶️ Bot retomado.");
+  runScanner();
+}
+
+async function runScanner() {
+  if (!isRunning) return;
+
+  try {
+    logConsole("🔍 Procurando tokens...");
+    const tokens = await buscarTokensPumpFun();
+
+    logConsole("📦 Tokens encontrados: " + tokens.length);
+    document.getElementById("tokensFound").innerText = tokens.length;
+
+    for (const token of tokens) {
+      if (!isRunning) break;
+
+      logConsole(`⚙️ Analisando ${token.symbol} (${token.address})`);
+      const shouldBuy = await shouldBuyToken(token);
+      if (shouldBuy) {
+        logConsole(`💰 Decisão: COMPRAR ${token.symbol}`);
+        await executeSwap(token);
+      } else {
+        logConsole(`❌ Decisão: Ignorar ${token.symbol}`);
+      }
+    }
+  } catch (err) {
+    logConsole("❌ Erro no scanner: " + err.message);
+  }
+
+  setTimeout(runScanner, 10000); // Repetição a cada 10 segundos
 }
 
 function logConsole(msg) {
-  const consoleBox = document.getElementById("console");
-  const line = document.createElement("div");
-  line.innerText = msg;
-  consoleBox.appendChild(line);
-  consoleBox.scrollTop = consoleBox.scrollHeight;
+  const consoleEl = document.getElementById("console");
+  if (!consoleEl) return;
+  const time = new Date().toLocaleTimeString();
+  consoleEl.innerText += `[${time}] ${msg}\n`;
+  consoleEl.scrollTop = consoleEl.scrollHeight;
 }
