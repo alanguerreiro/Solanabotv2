@@ -1,62 +1,80 @@
-window.onload = function () {
-  let isRunning = false;
-  let walletPublicKey = null;
+let botRunning = false;
+let paused = false;
 
-  async function connectWallet() {
-    logToConsole('🔄 Tentando conectar à Phantom Wallet...');
-    try {
-      const resp = await window.solana.connect();
-      walletPublicKey = resp.publicKey.toString();
-      document.getElementById('walletAddress').innerText = walletPublicKey;
-      document.getElementById('walletAddress').style.color = 'lime';
-      logToConsole(`✅ Carteira conectada: ${walletPublicKey}`);
-      startBot();
-    } catch (err) {
-      logToConsole(`❌ Erro ao conectar carteira: ${err.message || err}`);
-    }
-  }
+function logToConsole(message, type = 'info') {
+    const consoleDiv = document.getElementById('console');
+    const timestamp = new Date().toLocaleTimeString();
+    const color = type === 'error' ? 'red' : type === 'success' ? 'lime' : 'white';
+    consoleDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+    consoleDiv.scrollTop = consoleDiv.scrollHeight;
+}
 
-  function logToConsole(message) {
-    const consoleElement = document.getElementById('console');
-    const time = new Date().toLocaleTimeString();
-    const formatted = `[${time}] ${message}`;
-    consoleElement.innerHTML += `<div>${formatted}</div>`;
-    consoleElement.scrollTop = consoleElement.scrollHeight;
-  }
+async function connectWallet() {
+    try {
+        logToConsole("Tentando conectar à Phantom Wallet...");
+        const provider = window.phantom?.solana;
 
-  function startBot() {
-    if (!walletPublicKey) {
-      logToConsole("⚠️ Conecte a carteira antes de iniciar o bot.");
-      return;
-    }
+        if (!provider || !provider.isPhantom) {
+            throw new Error("Phantom Wallet não encontrada.");
+        }
 
-    isRunning = true;
-    document.getElementById('botStatus').innerText = 'Executando';
-    document.getElementById('botStatus').style.color = 'lime';
-    logToConsole("✅ Bot iniciado.");
-    // Aqui você pode chamar scanner.js ou outras rotinas
-  }
+        const resp = await provider.connect();
+        const publicKey = resp.publicKey.toString();
+        document.getElementById("walletAddress").innerText = publicKey;
+        logToConsole(`Carteira conectada: ${publicKey}`, 'success');
 
-  function pauseBot() {
-    isRunning = false;
-    document.getElementById('botStatus').innerText = 'Pausado';
-    document.getElementById('botStatus').style.color = 'orange';
-    logToConsole("⏸ Bot pausado.");
-  }
+        startBot();
+    } catch (error) {
+        logToConsole(`Erro ao conectar carteira: ${error.message}`, 'error');
+    }
+}
 
-  function resumeBot() {
-    if (walletPublicKey) {
-      isRunning = true;
-      document.getElementById('botStatus').innerText = 'Executando';
-      document.getElementById('botStatus').style.color = 'lime';
-      logToConsole("▶️ Bot retomado.");
-    } else {
-      logToConsole("⚠️ Carteira não conectada.");
-    }
-  }
+function startBot() {
+    logToConsole("Bot iniciado.", 'success');
+    botRunning = true;
+    paused = false;
+    document.getElementById("botStatus").innerText = "Executando";
+    runBot();
+}
 
-  // Botões
-  document.querySelector('button[onclick="connectWallet()"]').onclick = connectWallet;
-  document.querySelector('button[onclick="pausarBot()"]').onclick = pauseBot;
-  document.querySelector('button[onclick="retomarBot()"]').onclick = resumeBot;
-};
+function pauseBot() {
+    botRunning = false;
+    paused = true;
+    document.getElementById("botStatus").innerText = "Pausado";
+    logToConsole("Bot pausado.", 'info');
+}
+
+function resumeBot() {
+    if (!botRunning) {
+        botRunning = true;
+        paused = false;
+        document.getElementById("botStatus").innerText = "Executando";
+        logToConsole("Bot retomado.", 'info');
+        runBot();
+    }
+}
+
+async function runBot() {
+    while (botRunning && !paused) {
+        try {
+            const tokens = await buscarTokensPumpFun(); // scanner.js
+            document.getElementById("tokenCount").innerText = tokens.length;
+            logToConsole(`Tokens encontrados: ${tokens.length}`, 'info');
+
+            for (const token of tokens) {
+                if (!botRunning || paused) break;
+
+                const decisao = await analisarToken(token); // decision.js
+                if (decisao.comprar) {
+                    logToConsole(`Comprando ${token.symbol}...`);
+                    const resultado = await executarSwap(token); // swap.js
+                    logToConsole(`Resultado do swap: ${resultado.status}`, resultado.status === "sucesso" ? "success" : "error");
+                }
+            }
+        } catch (err) {
+            logToConsole(`Erro no loop do bot: ${err.message}`, 'error');
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 30000));
+    }
+}
