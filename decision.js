@@ -1,29 +1,29 @@
-import { executarSwap } from './swap.js';
+// decision.js
 
-let ativos = {};
+function avaliarCompra(token) {
+  const BUY_AMOUNT_USDC = 5;
+  const PROFIT_TARGET_PERCENT = 100;
+  const STOP_LOSS_PERCENT = 15;
+  const MAX_HOLD_TIME_MS = 5 * 60 * 60 * 1000; // 5 horas
 
-export async function analisarToken(token) {
-    if (ativos[token.address]) return;
+  logToConsole(`📊 Avaliando token ${token.symbol} (${token.address})`);
 
-    console.log(`📈 Analisando token: ${token.name} (${token.address})`);
+  // Simula decisão de compra automática
+  const shouldBuy = true; // Aqui pode inserir sua lógica extra se quiser
 
-    const deveComprar = true; // Aqui você pode colocar lógica futura de volume, holders, etc.
+  if (shouldBuy) {
+    logToConsole(`🟢 Decisão: Comprar $${BUY_AMOUNT_USDC} de ${token.symbol}`);
+    
+    realizarSwap(token.address, BUY_AMOUNT_USDC)
+      .then((txId) => {
+        logToConsole(`✅ Swap realizado com sucesso! TX: ${txId}`);
 
-    if (deveComprar) {
-        console.log(`✅ Executando compra de ${token.name}`);
-        const resultado = await executarSwap(token);
-
-        if (resultado.status === "sucesso") {
-            ativos[token.address] = {
-                nome: token.name,
-                compradoEm: Date.now(),
-                txCompra: resultado.assinatura,
-                status: "comprado",
-                precoCompra: token.price, // se você tiver isso vindo do scanner
-            };
-            console.log(`🛒 Compra efetuada! TX: ${resultado.assinatura}`);
-        } else {
-            console.error(`Erro ao comprar ${token.name}: ${resultado.mensagem}`);
-        }
-    }
+        monitorarLucroOuPrejuizo(token, BUY_AMOUNT_USDC, PROFIT_TARGET_PERCENT, STOP_LOSS_PERCENT, MAX_HOLD_TIME_MS);
+      })
+      .catch((err) => {
+        logToConsole(`❌ Falha ao comprar ${token.symbol}: ${err.message}`);
+      });
+  } else {
+    logToConsole(`🔴 Decisão: Ignorar ${token.symbol}`);
+  }
 }
