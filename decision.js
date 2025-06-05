@@ -1,42 +1,29 @@
-// decision.js
+import { executarSwap } from './swap.js';
 
-// Função para decidir se o token é elegível para compra
-export function shouldBuyToken(tokenData) {
-  const preco = tokenData.price;
-  const volume = tokenData.volume;
-  const liquidez = tokenData.liquidity;
-  const minutosDesdeCriacao = tokenData.ageMinutes;
-  const marketCap = tokenData.marketCap;
+let ativos = {};
 
-  // Lógica para tokens pequenos com potencial
-  const precoAlvo = 0.01;
-  const volumeMinimo = 3000;
-  const liquidezMinima = 10000;
-  const tempoMaximo = 60; // minutos
-  const marketCapMax = 100000;
+export async function analisarToken(token) {
+    if (ativos[token.address]) return;
 
-  const elegivel = (
-    preco < precoAlvo &&
-    volume > volumeMinimo &&
-    liquidez > liquidezMinima &&
-    minutosDesdeCriacao < tempoMaximo &&
-    marketCap < marketCapMax
-  );
+    console.log(`📈 Analisando token: ${token.name} (${token.address})`);
 
-  if (elegivel) {
-    console.log("✅ Token elegível para compra:", tokenData);
-  } else {
-    console.log("❌ Token ignorado:", tokenData);
-  }
+    const deveComprar = true; // Aqui você pode colocar lógica futura de volume, holders, etc.
 
-  return elegivel;
-}
+    if (deveComprar) {
+        console.log(`✅ Executando compra de ${token.name}`);
+        const resultado = await executarSwap(token);
 
-// Estratégia de retenção de até 5h caso identifique potencial de 5x ou mais
-export function shouldHold(tokenMetrics) {
-  if (tokenMetrics.potentialMultiplier >= 5) {
-    console.log("⏳ Token mantido por potencial de múltiplo:", tokenMetrics);
-    return true;
-  }
-  return false;
+        if (resultado.status === "sucesso") {
+            ativos[token.address] = {
+                nome: token.name,
+                compradoEm: Date.now(),
+                txCompra: resultado.assinatura,
+                status: "comprado",
+                precoCompra: token.price, // se você tiver isso vindo do scanner
+            };
+            console.log(`🛒 Compra efetuada! TX: ${resultado.assinatura}`);
+        } else {
+            console.error(`Erro ao comprar ${token.name}: ${resultado.mensagem}`);
+        }
+    }
 }
