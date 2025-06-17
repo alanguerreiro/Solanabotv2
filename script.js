@@ -1,77 +1,70 @@
-let walletAddress = null;
-let botRunning = false;
-let intervalId = null;
+let isBotRunning = false;
+let intervalId;
 
-async function connectPhantom() {
-  try {
-    logToConsole("🟡 Tentando conectar à Phantom Wallet...");
-    const provider = window.solana;
-    if (!provider || !provider.isPhantom) {
-      alert("Phantom Wallet não encontrada. Instale a extensão.");
-      return;
+async function connectWallet() {
+    logToConsole('🟡 Tentando conectar à Phantom Wallet...');
+    if (!window.solana || !window.solana.isPhantom) {
+        logToConsole('❌ Phantom Wallet não detectado.');
+        return;
     }
 
-    const resp = await provider.connect();
-    walletAddress = resp.publicKey.toString();
-
-    document.getElementById("walletAddress").innerText = walletAddress;
-    document.getElementById("walletStatus").innerText = "🟢 Conectada";
-    logToConsole("✅ Carteira conectada: " + walletAddress);
-
-    startBot();
-  } catch (err) {
-    logToConsole("❌ Erro ao conectar carteira: " + err.message);
-  }
+    try {
+        const resp = await window.solana.connect();
+        const walletAddress = resp.publicKey.toString();
+        document.getElementById('walletAddress').innerText = walletAddress;
+        document.getElementById('walletStatus').style.color = 'lime';
+        logToConsole(`✅ Carteira conectada: ${walletAddress}`);
+    } catch (err) {
+        logToConsole(`❌ Erro ao conectar carteira: ${err.message}`);
+    }
 }
 
 function startBot() {
-  botRunning = true;
-  document.getElementById("botStatus").innerText = "🟢 Executando";
-  document.getElementById("botStarted").innerText = "🟢 Bot iniciado.";
-  logToConsole("🤖 Bot iniciado.");
-
-  intervalId = setInterval(async () => {
-    try {
-      logToConsole("⏳ Aguardando tokens...");
-      const tokens = await buscarTokensPumpFun(); // <- scanner.js
-      document.getElementById("tokenCount").innerText = tokens.length;
-      logToConsole("🔍 Tokens encontrados: " + tokens.length);
-
-      for (const token of tokens) {
-        logToConsole("📈 Analisando token: " + token.symbol);
-        const decisao = await decidirCompra(token); // <- decision.js
-
-        if (decisao.comprar) {
-          logToConsole("💰 Comprando token: " + token.symbol);
-          await realizarSwap(token); // <- swap.js
-        } else {
-          logToConsole("⏭️ Pulando token: " + token.symbol);
-        }
-      }
-    } catch (err) {
-      logToConsole("❌ Erro no loop do bot: " + err.message);
+    if (isBotRunning) {
+        logToConsole("⚠️ Bot já está em execução.");
+        return;
     }
-  }, 10000); // Executa a cada 10 segundos
+
+    isBotRunning = true;
+    document.getElementById("botStatus").innerText = "Executando";
+    document.getElementById("botStatus").style.color = "lime";
+    logToConsole("✅ Bot iniciado.");
+
+    intervalId = setInterval(async () => {
+        try {
+            logToConsole("🕐 Aguardando inicialização do bot...");
+            const tokens = await buscarTokensPumpFun();
+            document.getElementById("tokenCount").innerText = tokens.length;
+            for (const token of tokens) {
+                await decidirCompraOuVenda(token);
+            }
+        } catch (error) {
+            logToConsole(`❌ Erro no loop do bot: ${error.message}`);
+        }
+    }, 15000); // 15 segundos
 }
 
 function pauseBot() {
-  if (intervalId) clearInterval(intervalId);
-  botRunning = false;
-  document.getElementById("botStatus").innerText = "🟡 Pausado";
-  logToConsole("⏸️ Bot pausado.");
+    if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+        isBotRunning = false;
+        document.getElementById("botStatus").innerText = "Parado";
+        document.getElementById("botStatus").style.color = "orange";
+        logToConsole("⏸️ Bot pausado.");
+    }
 }
 
-function resumeBot() {
-  if (!botRunning) {
-    startBot();
-  }
+function resetBot() {
+    pauseBot();
+    document.getElementById("walletAddress").innerText = "---";
+    document.getElementById("tokenCount").innerText = "0";
+    logToConsole("🔄 Bot resetado.");
 }
 
-function logToConsole(msg) {
-  const logDiv = document.getElementById("logConsole");
-  const time = new Date().toLocaleTimeString();
-  const p = document.createElement("p");
-  p.innerText = `[${time}] ${msg}`;
-  logDiv.appendChild(p);
-  logDiv.scrollTop = logDiv.scrollHeight;
+function logToConsole(message) {
+    const consoleElement = document.getElementById("console");
+    const timestamp = new Date().toLocaleTimeString();
+    consoleElement.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+    consoleElement.scrollTop = consoleElement.scrollHeight;
 }
