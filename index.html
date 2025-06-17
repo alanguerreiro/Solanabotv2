@@ -1,54 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SolanaBot V2</title>
+  <title>🚀 SolanaBot V2</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f2f2f2;
-      padding: 20px;
-    }
-    h2 {
-      color: #333;
-    }
-    button {
-      padding: 10px;
-      margin: 5px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    #console {
+    body { font-family: Arial, sans-serif; background-color: #f0f0f0; color: #000; }
+    .status { font-weight: bold; }
+    .console {
       background-color: #000;
       color: #0f0;
       font-family: monospace;
       padding: 12px;
-      margin-top: 20px;
       height: 300px;
       overflow-y: auto;
-      border-radius: 5px;
+      white-space: pre-line;
+      border-radius: 8px;
+      margin-top: 15px;
     }
-    .status {
-      margin: 10px 0;
-      font-weight: bold;
-    }
+    button { margin: 5px; }
   </style>
 </head>
 <body>
   <h2>🚀 SolanaBot V2</h2>
   <p>Conecte sua Phantom Wallet, configure os parâmetros e deixe o bot trabalhar por você.</p>
 
-  <button onclick="connectWallet()">🟢 Conectar Phantom</button>
+  <button onclick="connectPhantom()">✅ Conectar Phantom</button>
   <button onclick="pauseBot()">⏸️ Pausar</button>
-  <button onclick="resumeBot()">🔁 Retomar</button>
+  <button onclick="resumeBot()">🔄 Retomar</button>
 
-  <div class="status">🟡 Bot status: <span id="botStatus">Parado</span></div>
-  <div class="status">🟡 Carteira conectada: <span id="walletAddress">---</span></div>
-  <div class="status">🟢 Bot iniciado.</div>
-  <div class="status">🔍 Tokens encontrados: <span id="tokenCount">0</span></div>
+  <p class="status">🟡 Bot status: <span id="botStatus">Parado</span></p>
+  <p class="status">🟡 Carteira conectada: <span id="walletAddress">---</span></p>
+  <p class="status">🟢 Bot iniciado.</p>
+  <p class="status">🔄 Tokens encontrados: <span id="tokenCount">0</span></p>
 
-  <div id="console"></div>
+  <div id="console" class="console">Inicializando console do bot...</div>
 
   <script src="scanner.js"></script>
   <script src="decision.js"></script>
