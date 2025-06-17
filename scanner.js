@@ -1,30 +1,44 @@
 // scanner.js
 
-const fetchNewTokens = async () => {
+const fetch = require('node-fetch');
+const { handleToken } = require('./decision');
+
+const BIRDEYE_API_KEY = 'f6238bead5294bc98607d0e4be6082d8'; // sua chave
+const CHECK_INTERVAL = 15000; // 15 segundos
+let seen = new Set();
+
+async function fetchPumpTokens() {
   try {
-    const response = await fetch('https://api.pump.fun/api/launchpad/launches?limit=5');
-    const data = await response.json();
-    if (data && Array.isArray(data)) {
-      return data.map(token => ({
-        name: token.metadata?.name || "Unknown",
-        symbol: token.metadata?.symbol || "TKN",
-        address: token.tokenId,
-        pair: token.tokenId,
+    const res = await fetch('https://pump.fun/api/projects?sort=launch_date&limit=20');
+    const data = await res.json();
+
+    return data.projects
+      .filter(p => p?.mint)
+      .map(p => ({
+        name: p.metadata?.name || 'Unnamed',
+        mintAddress: p.mint
       }));
-    } else {
-      console.error("Formato inválido:", data);
-      return [];
-    }
-  } catch (error) {
-    console.error("Erro ao buscar tokens:", error);
+  } catch (err) {
+    console.error('❌ Erro ao buscar tokens do Pump.fun:', err);
     return [];
   }
-};
+}
 
-setInterval(async () => {
-  const tokens = await fetchNewTokens();
-  console.log("Novos tokens encontrados:", tokens);
-  for (const token of tokens) {
-    window.evaluateToken(token);
-  }
-}, 60000); // Executa a cada 60 segundos
+async function scan() {
+  console.log('🔍 Iniciando scanner Pump.fun...');
+
+  setInterval(async () => {
+    console.log('🔁 Buscando novos tokens...');
+    const tokens = await fetchPumpTokens();
+
+    for (const token of tokens) {
+      if (!seen.has(token.mintAddress)) {
+        seen.add(token.mintAddress);
+        console.log(`🆕 Novo token: ${token.name} (${token.mintAddress})`);
+        await handleToken(token);
+      }
+    }
+  }, CHECK_INTERVAL);
+}
+
+module.exports = { scan };
