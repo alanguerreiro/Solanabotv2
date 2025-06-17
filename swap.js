@@ -1,50 +1,53 @@
-import { Jupiter, RouteMap, createJupiterApiClient } from "@jup-ag/core";
-import { Connection, PublicKey, Keypair, Transaction } from "@solana/web3.js";
+const fs = require('fs');
+const { Connection, Keypair, PublicKey, sendAndConfirmTransaction } = require('@solana/web3.js');
+const { Jupiter, RouteMap, TOKEN_LIST_URL } = require('@jup-ag/core');
+const fetch = require('node-fetch');
 
-const connection = new Connection("https://api.mainnet-beta.solana.com");
-const apiClient = createJupiterApiClient();
+const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
+const connection = new Connection(RPC_ENDPOINT, 'confirmed');
 
-export async function executarSwap(token) {
-    try {
-        const phantomProvider = window?.phantom?.solana;
-        if (!phantomProvider?.publicKey) {
-            throw new Error("Phantom Wallet não conectada.");
-        }
+// Carrega o keypair local
+const secretKey = JSON.parse(fs.readFileSync('./keypair.json'));
+const wallet = Keypair.fromSecretKey(Uint8Array.from(secretKey));
 
-        const owner = phantomProvider.publicKey;
-        const inputMint = new PublicKey("Es9vMFrzaCERntbLxjtsP79Zx5ecTXZzK2L9nqkdD7i"); // USDT
-        const outputMint = new PublicKey(token.address); // Token alvo
-        const amount = 5 * 10 ** 6; // 5 USDT (USDT tem 6 casas decimais)
+// Função para realizar swap
+async function swapToken(inputMint, outputMint, amount) {
+  const jupiter = await Jupiter.load({
+    connection,
+    cluster: 'mainnet-beta',
+    user: wallet,
+    wrapUnwrapSOL: true,
+  });
 
-        const jupiter = await Jupiter.load({
-            connection,
-            cluster: "mainnet-beta",
-            user: owner,
-        });
+  const routes = await jupiter.computeRoutes({
+    inputMint: new PublicKey(inputMint),
+    outputMint: new PublicKey(outputMint),
+    amount,
+    slippage: 1, // 1% slippage
+  });
 
-        const routes = await jupiter.computeRoutes({
-            inputMint,
-            outputMint,
-            amount,
-            slippageBps: 500, // 5% slippage
-            forceFetch: true,
-        });
+  if (!routes || routes.routesInfos.length === 0) {
+    console.log('❌ Nenhuma rota encontrada.');
+    return;
+  }
 
-        if (!routes.routesInfos || routes.routesInfos.length === 0) {
-            throw new Error("Nenhuma rota encontrada para swap.");
-        }
+  const { execute } = await jupiter.exchange({
+    routeInfo: routes.routesInfos[0],
+  });
 
-        const swapResult = await jupiter.exchange({
-            routeInfo: routes.routesInfos[0],
-        });
+  const swapResult = await execute();
 
-        if (swapResult.error) {
-            throw new Error(`Erro ao executar swap: ${swapResult.error}`);
-        }
-
-        const signedTx = await phantomProvider.signAndSendTransaction(swapResult.tx);
-        logToConsole(`✅ Swap executado com sucesso. TX ID: ${signedTx.signature}`);
-    } catch (err) {
-        logToConsole(`❌ Erro ao executar swap: ${err.message}`);
-    }
+  if (swapResult.error) {
+    console.error('❌ Swap falhou:', swapResult.error);
+  } else {
+    console.log('✅ Swap executado com sucesso!');
+    console.log('💸 Txid:', swapResult.txid);
+  }
 }
+
+// Exemplo de uso: swap 5 USDC para SOL
+const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const SOL = 'So11111111111111111111111111111111111111112';
+const amount = 5 * 10 ** 6; // 5 USDC em lamports
+
+swapToken(USDC, SOL, amount);
