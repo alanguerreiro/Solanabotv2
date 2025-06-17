@@ -1,50 +1,52 @@
-import { Jupiter, RouteMap, createJupiterApiClient } from "@jup-ag/core";
-import { Connection, PublicKey, Keypair, Transaction } from "@solana/web3.js";
+// decision.js
 
-const connection = new Connection("https://api.mainnet-beta.solana.com");
-const apiClient = createJupiterApiClient();
+const PROFIT_TARGET = 3.0;  // 3x = +200%
+const STOP_LOSS = 0.8;      // -20%
 
-export async function executarSwap(token) {
-    try {
-        const phantomProvider = window?.phantom?.solana;
-        if (!phantomProvider?.publicKey) {
-            throw new Error("Phantom Wallet não conectada.");
-        }
+window.activeTrades = {}; // Armazena as compras ativas
 
-        const owner = phantomProvider.publicKey;
-        const inputMint = new PublicKey("Es9vMFrzaCERntbLxjtsP79Zx5ecTXZzK2L9nqkdD7i"); // USDT
-        const outputMint = new PublicKey(token.address); // Token alvo
-        const amount = 5 * 10 ** 6; // 5 USDT (USDT tem 6 casas decimais)
+window.evaluateToken = async (token) => {
+  if (window.activeTrades[token.address]) return;
 
-        const jupiter = await Jupiter.load({
-            connection,
-            cluster: "mainnet-beta",
-            user: owner,
-        });
+  console.log(`🔍 Avaliando token: ${token.name} (${token.symbol})`);
 
-        const routes = await jupiter.computeRoutes({
-            inputMint,
-            outputMint,
-            amount,
-            slippageBps: 500, // 5% slippage
-            forceFetch: true,
-        });
+  const buyAmount = 5; // USD
+  const buyPrice = await window.getPriceInUSD(token.address);
+  if (!buyPrice) return console.log("Preço de compra não encontrado.");
 
-        if (!routes.routesInfos || routes.routesInfos.length === 0) {
-            throw new Error("Nenhuma rota encontrada para swap.");
-        }
+  const tokenAmount = buyAmount / buyPrice;
+  window.activeTrades[token.address] = {
+    ...token,
+    buyPrice,
+    tokenAmount,
+    buyTime: Date.now()
+  };
 
-        const swapResult = await jupiter.exchange({
-            routeInfo: routes.routesInfos[0],
-        });
+  console.log(`💰 Comprando ${token.symbol} por $${buyAmount}...`);
+  await window.swap('USDC', token.address, buyAmount);
+};
 
-        if (swapResult.error) {
-            throw new Error(`Erro ao executar swap: ${swapResult.error}`);
-        }
+window.monitorPrices = async () => {
+  for (const tokenAddress in window.activeTrades) {
+    const trade = window.activeTrades[tokenAddress];
+    const currentPrice = await window.getPriceInUSD(tokenAddress);
 
-        const signedTx = await phantomProvider.signAndSendTransaction(swapResult.tx);
-        logToConsole(`✅ Swap executado com sucesso. TX ID: ${signedTx.signature}`);
-    } catch (err) {
-        logToConsole(`❌ Erro ao executar swap: ${err.message}`);
+    if (!currentPrice) continue;
+
+    const priceChange = currentPrice / trade.buyPrice;
+
+    if (priceChange >= PROFIT_TARGET) {
+      console.log(`🚀 Vendendo ${trade.symbol} com +${((priceChange - 1) * 100).toFixed(2)}% lucro`);
+      await window.swap(tokenAddress, 'USDC', trade.tokenAmount);
+      delete window.activeTrades[tokenAddress];
+    } else if (priceChange <= STOP_LOSS) {
+      console.log(`🔻 Vendendo ${trade.symbol} com -${((1 - priceChange) * 100).toFixed(2)}% prejuízo`);
+      await window.swap(tokenAddress, 'USDC', trade.tokenAmount);
+      delete window.activeTrades[tokenAddress];
+    } else {
+      console.log(`⏳ Aguardando ${trade.symbol}: Atual = ${priceChange.toFixed(2)}x`);
     }
-}
+  }
+};
+
+setInterval(window.monitorPrices, 30000); // Checa a cada 30 segundos
