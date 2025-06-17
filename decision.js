@@ -1,52 +1,53 @@
 // decision.js
 
-const PROFIT_TARGET = 3.0;  // 3x = +200%
-const STOP_LOSS = 0.8;      // -20%
+const { swapToken } = require('./swap');
+const { getPrice } = require('./price');
+const trackedTokens = {}; // Guarda tokens comprados e seu preço de entrada
 
-window.activeTrades = {}; // Armazena as compras ativas
+const BUY_AMOUNT = 5; // USD
 
-window.evaluateToken = async (token) => {
-  if (window.activeTrades[token.address]) return;
+async function handleToken(token) {
+  const mint = token.mintAddress;
 
-  console.log(`🔍 Avaliando token: ${token.name} (${token.symbol})`);
+  if (trackedTokens[mint]) return; // Já comprou
 
-  const buyAmount = 5; // USD
-  const buyPrice = await window.getPriceInUSD(token.address);
-  if (!buyPrice) return console.log("Preço de compra não encontrado.");
+  console.log(`🛒 Novo token encontrado: ${mint}`);
+  console.log('🔄 Realizando compra...');
 
-  const tokenAmount = buyAmount / buyPrice;
-  window.activeTrades[token.address] = {
-    ...token,
-    buyPrice,
-    tokenAmount,
-    buyTime: Date.now()
-  };
+  await swapToken(mint, BUY_AMOUNT);
 
-  console.log(`💰 Comprando ${token.symbol} por $${buyAmount}...`);
-  await window.swap('USDC', token.address, buyAmount);
-};
+  const entryPrice = await getPrice(mint);
+  if (!entryPrice) return console.log('⚠️ Não foi possível obter o preço de entrada.');
 
-window.monitorPrices = async () => {
-  for (const tokenAddress in window.activeTrades) {
-    const trade = window.activeTrades[tokenAddress];
-    const currentPrice = await window.getPriceInUSD(tokenAddress);
+  trackedTokens[mint] = {
+    entryPrice,
+    timestamp: Date.now()
+  };
 
-    if (!currentPrice) continue;
+  console.log(`💾 Token ${mint} comprado a $${entryPrice}`);
+}
 
-    const priceChange = currentPrice / trade.buyPrice;
+async function monitorProfits() {
+  for (const mint of Object.keys(trackedTokens)) {
+    const currentPrice = await getPrice(mint);
+    const entry = trackedTokens[mint];
 
-    if (priceChange >= PROFIT_TARGET) {
-      console.log(`🚀 Vendendo ${trade.symbol} com +${((priceChange - 1) * 100).toFixed(2)}% lucro`);
-      await window.swap(tokenAddress, 'USDC', trade.tokenAmount);
-      delete window.activeTrades[tokenAddress];
-    } else if (priceChange <= STOP_LOSS) {
-      console.log(`🔻 Vendendo ${trade.symbol} com -${((1 - priceChange) * 100).toFixed(2)}% prejuízo`);
-      await window.swap(tokenAddress, 'USDC', trade.tokenAmount);
-      delete window.activeTrades[tokenAddress];
-    } else {
-      console.log(`⏳ Aguardando ${trade.symbol}: Atual = ${priceChange.toFixed(2)}x`);
-    }
-  }
-};
+    if (!currentPrice || !entry) continue;
 
-setInterval(window.monitorPrices, 30000); // Checa a cada 30 segundos
+    const profitPercent = ((currentPrice - entry.entryPrice) / entry.entryPrice) * 100;
+
+    if (profitPercent >= 200) {
+      console.log(`🚀 Vendendo ${mint} com lucro de ${profitPercent.toFixed(2)}%`);
+      await swapToken('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 5); // Simula venda p/ USDC
+      delete trackedTokens[mint];
+    } else if (profitPercent <= -20) {
+      console.log(`📉 Stop Loss ativado para ${mint} com perda de ${profitPercent.toFixed(2)}%`);
+      await swapToken('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 5); // Simula venda p/ USDC
+      delete trackedTokens[mint];
+    } else {
+      console.log(`📊 ${mint}: ${profitPercent.toFixed(2)}%`);
+    }
+  }
+}
+
+module.exports = { handleToken, monitorProfits };
