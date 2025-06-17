@@ -1,54 +1,49 @@
+// swap.js
+
 const fs = require('fs');
-const { Connection, Keypair, PublicKey } = require('@solana/web3.js');
-const { Jupiter } = require('@jup-ag/core');
-const fetch = require('node-fetch');
+const { Connection, Keypair, VersionedTransaction, clusterApiUrl } = require('@solana/web3.js');
+const { Jupiter, RouteMap, TokenListProvider } = require('@jup-ag/core');
 
-// Conexão com a Solana Mainnet
-const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
-const connection = new Connection(RPC_ENDPOINT, 'confirmed');
+const connection = new Connection(clusterApiUrl('mainnet-beta'), 'confirmed');
 
-// Carrega sua carteira (keypair.json gerado localmente)
-const secretKey = JSON.parse(fs.readFileSync('./keypair.json'));
-const wallet = Keypair.fromSecretKey(Uint8Array.from(secretKey));
+// ⚙️ Lê o keypair do arquivo gerado com o keypair.js
+const secret = JSON.parse(fs.readFileSync('keypair.json'));
+const wallet = Keypair.fromSecretKey(new Uint8Array(secret));
 
-// Função para realizar o swap
-async function swapToken(inputMint, outputMint, amount) {
-  const jupiter = await Jupiter.load({
-    connection,
-    cluster: 'mainnet-beta',
-    user: wallet,
-    wrapUnwrapSOL: true,
-  });
+const SLIPPAGE = 0.5; // 0.5%
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'; // USDC
 
-  const routes = await jupiter.computeRoutes({
-    inputMint: new PublicKey(inputMint),
-    outputMint: new PublicKey(outputMint),
-    amount,
-    slippage: 1, // 1% de tolerância
-  });
+async function swapToken(targetMintAddress, amountInUsdc) {
+  try {
+    const jupiter = await Jupiter.load({
+      connection,
+      cluster: 'mainnet-beta',
+      user: wallet,
+    });
 
-  if (!routes || routes.routesInfos.length === 0) {
-    console.log('❌ Nenhuma rota encontrada para o swap.');
-    return;
-  }
+    const inputAmount = amountInUsdc * 10 ** 6; // USDC = 6 decimals
+    const routes = await jupiter.computeRoutes({
+      inputMint: USDC_MINT,
+      outputMint: targetMintAddress,
+      amount: inputAmount,
+      slippage: SLIPPAGE,
+      forceFetch: true,
+    });
 
-  const { execute } = await jupiter.exchange({
-    routeInfo: routes.routesInfos[0],
-  });
+    if (!routes.routesInfos || routes.routesInfos.length === 0) {
+      console.log(`⚠️ Nenhuma rota encontrada para ${targetMintAddress}`);
+      return;
+    }
 
-  const swapResult = await execute();
+    const { execute } = await jupiter.exchange({
+      routeInfo: routes.routesInfos[0],
+    });
 
-  if (swapResult.error) {
-    console.error('❌ Erro ao executar swap:', swapResult.error);
-  } else {
-    console.log('✅ Swap executado com sucesso!');
-    console.log('🔁 Transação ID:', swapResult.txid);
-  }
+    const txid = await execute();
+    console.log(`✅ Swap realizado com sucesso: ${txid}`);
+  } catch (error) {
+    console.error('❌ Erro ao realizar swap:', error.message);
+  }
 }
 
-// Exemplo: Swap de 5 USDC → SOL
-const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-const SOL = 'So11111111111111111111111111111111111111112';
-const amount = 5 * 10 ** 6; // 5 USDC em base de 6 decimais
-
-swapToken(USDC, SOL, amount);
+module.exports = { swapToken };
