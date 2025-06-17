@@ -1,43 +1,30 @@
 // scanner.js
-const BIRDEYE_API_KEY = "f6238bead5294bc98607d0e4be6082d8";
 
-async function buscarTokensPumpFun() {
-  logToConsole("🔍 Buscando novos tokens no Pump.fun...");
+const fetchNewTokens = async () => {
   try {
-    const response = await fetch("https://client-api.pump.fun/tokens?sort=createdAt&limit=10");
+    const response = await fetch('https://api.pump.fun/api/launchpad/launches?limit=5');
     const data = await response.json();
-
-    const tokens = data?.tokens || [];
-    logToConsole(`✅ ${tokens.length} tokens encontrados no Pump.fun`);
-
-    for (const token of tokens) {
-      const tokenInfo = {
-        name: token.name,
-        symbol: token.symbol,
-        address: token.mint,
-      };
-
-      // Verifica dados adicionais com a Birdeye
-      const detalhes = await fetch(
-        `https://public-api.birdeye.so/public/token/basic-info?address=${tokenInfo.address}`,
-        {
-          headers: {
-            "X-API-KEY": BIRDEYE_API_KEY,
-            "accept": "application/json",
-          },
-        }
-      );
-
-      const detalhesJson = await detalhes.json();
-
-      if (detalhesJson?.data?.price && detalhesJson?.data?.liquidity?.usd > 500) {
-        logToConsole(`🚀 Token detectado com liquidez > $500: ${tokenInfo.symbol}`);
-        avaliarCompra(tokenInfo); // Envia token para decision.js
-      } else {
-        logToConsole(`⚠️ Token ignorado: ${tokenInfo.symbol} - Baixa liquidez`);
-      }
+    if (data && Array.isArray(data)) {
+      return data.map(token => ({
+        name: token.metadata?.name || "Unknown",
+        symbol: token.metadata?.symbol || "TKN",
+        address: token.tokenId,
+        pair: token.tokenId,
+      }));
+    } else {
+      console.error("Formato inválido:", data);
+      return [];
     }
   } catch (error) {
-    logToConsole(`❌ Erro ao buscar tokens: ${error.message}`);
+    console.error("Erro ao buscar tokens:", error);
+    return [];
   }
-}
+};
+
+setInterval(async () => {
+  const tokens = await fetchNewTokens();
+  console.log("Novos tokens encontrados:", tokens);
+  for (const token of tokens) {
+    window.evaluateToken(token);
+  }
+}, 60000); // Executa a cada 60 segundos
